@@ -1,0 +1,2 @@
+# gestor
+Gestor tiendas inventario
