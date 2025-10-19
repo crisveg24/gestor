@@ -18,7 +18,7 @@ export const errorHandler = (
   err: AppError | Error,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void => {
   let error = { ...err } as AppError;
   error.message = err.message;
@@ -61,7 +61,7 @@ export const errorHandler = (
   });
 };
 
-export const notFound = (req: Request, res: Response, next: NextFunction): void => {
+export const notFound = (req: Request, _res: Response, next: NextFunction): void => {
   const error = new AppError(`Ruta no encontrada - ${req.originalUrl}`, 404);
   next(error);
 };

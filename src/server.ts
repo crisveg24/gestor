@@ -85,7 +85,7 @@ app.use('/api/sales', salesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 // Ruta de health check
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.json({
     success: true,
     message: 'API funcionando correctamente',
@@ -94,7 +94,7 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // Ruta raíz
-app.get('/', (req: Request, res: Response) => {
+app.get('/', (_req: Request, res: Response) => {
   res.json({
     success: true,
     message: 'API de Gestor de Tiendas',

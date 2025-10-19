@@ -55,7 +55,7 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
 
       // Actualizar inventario
       inventoryItem.quantity -= item.quantity;
-      inventoryItem.updatedBy = req.user?._id!;
+      inventoryItem.updatedBy = req.user?._id as any;
       await inventoryItem.save({ session });
 
       saleItems.push({
@@ -73,7 +73,7 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
       tax: tax || 0,
       discount: discount || 0,
       paymentMethod,
-      soldBy: req.user?._id,
+      soldBy: req.user?._id as any,
       notes
     }], { session });
 
@@ -220,14 +220,14 @@ export const cancelSale = async (req: AuthRequest, res: Response, next: NextFunc
 
       if (inventoryItem) {
         inventoryItem.quantity += item.quantity;
-        inventoryItem.updatedBy = req.user?._id!;
+        inventoryItem.updatedBy = req.user?._id as any;
         await inventoryItem.save({ session });
       }
     }
 
     // Actualizar venta
     sale.status = SaleStatus.CANCELLED;
-    sale.cancelledBy = req.user?._id;
+    sale.cancelledBy = req.user?._id as any;
     sale.cancelledAt = new Date();
     sale.cancellationReason = reason;
     await sale.save({ session });

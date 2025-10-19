@@ -31,7 +31,7 @@ export const getStoreInventory = async (req: AuthRequest, res: Response, next: N
     let productIds: string[] | undefined;
     if (search || category) {
       const products = await Product.find(productQuery).select('_id');
-      productIds = products.map(p => p._id.toString());
+      productIds = products.map(p => String(p._id));
       query.product = { $in: productIds };
     }
 
@@ -149,7 +149,7 @@ export const updateInventoryItem = async (req: AuthRequest, res: Response, next:
     if (minStock !== undefined) inventoryItem.minStock = minStock;
     if (maxStock !== undefined) inventoryItem.maxStock = maxStock;
 
-    inventoryItem.updatedBy = req.user?._id!;
+    inventoryItem.updatedBy = req.user?._id as any;
     await inventoryItem.save();
 
     await inventoryItem.populate('product store');

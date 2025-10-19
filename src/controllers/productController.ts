@@ -191,7 +191,7 @@ export const deleteProduct = async (req: AuthRequest, res: Response, next: NextF
 // @desc    Obtener categorías
 // @route   GET /api/products/categories/list
 // @access  Private
-export const getCategories = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+export const getCategories = async (_req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const categories = await Product.distinct('category');
 

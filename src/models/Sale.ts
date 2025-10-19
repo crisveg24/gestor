@@ -123,14 +123,14 @@ SaleSchema.index({ status: 1 });
 SaleSchema.index({ createdAt: -1 });
 
 // Calcular subtotales antes de guardar
-SaleSchema.pre('save', function(next) {
+SaleSchema.pre<ISale>('save', function(next) {
   // Calcular subtotales de items
-  this.items.forEach(item => {
+  this.items.forEach((item: ISaleItem) => {
     item.subtotal = item.quantity * item.unitPrice;
   });
   
   // Calcular total
-  this.total = this.items.reduce((sum, item) => sum + item.subtotal, 0);
+  this.total = this.items.reduce((sum: number, item: ISaleItem) => sum + item.subtotal, 0);
   
   // Calcular total final
   this.finalTotal = this.total + this.tax - this.discount;

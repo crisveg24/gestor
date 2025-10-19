@@ -9,7 +9,7 @@ export interface AuthRequest extends Request {
 }
 
 // Middleware de autenticación
-export const protect = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+export const protect = async (req: AuthRequest, _res: Response, next: NextFunction): Promise<void> => {
   try {
     let token: string | undefined;
 
@@ -57,7 +57,7 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
 
 // Middleware para verificar roles
 export const authorize = (...roles: UserRole[]) => {
-  return (req: AuthRequest, res: Response, next: NextFunction): void => {
+  return (req: AuthRequest, _res: Response, next: NextFunction): void => {
     if (!req.user) {
       throw new AppError('No autorizado', 401);
     }
@@ -78,7 +78,7 @@ export const authorize = (...roles: UserRole[]) => {
 
 // Middleware para verificar permisos específicos
 export const checkPermission = (permission: keyof IUser['permissions']) => {
-  return (req: AuthRequest, res: Response, next: NextFunction): void => {
+  return (req: AuthRequest, _res: Response, next: NextFunction): void => {
     if (!req.user) {
       throw new AppError('No autorizado', 401);
     }
@@ -102,7 +102,7 @@ export const checkPermission = (permission: keyof IUser['permissions']) => {
 };
 
 // Middleware para verificar que el usuario solo acceda a su tienda
-export const checkStoreAccess = (req: AuthRequest, res: Response, next: NextFunction): void => {
+export const checkStoreAccess = (req: AuthRequest, _res: Response, next: NextFunction): void => {
   if (!req.user) {
     throw new AppError('No autorizado', 401);
   }
@@ -132,14 +132,14 @@ export const checkStoreAccess = (req: AuthRequest, res: Response, next: NextFunc
 
 // Generar JWT token
 export const generateToken = (id: string): string => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'secret', {
-    expiresIn: process.env.JWT_EXPIRE || '7d'
-  });
+  const secret = process.env.JWT_SECRET || 'secret';
+  const expiresIn: string = process.env.JWT_EXPIRE || '7d';
+  return jwt.sign({ id }, secret, { expiresIn } as jwt.SignOptions);
 };
 
 // Generar refresh token
 export const generateRefreshToken = (id: string): string => {
-  return jwt.sign({ id }, process.env.JWT_REFRESH_SECRET || 'refresh-secret', {
-    expiresIn: process.env.JWT_REFRESH_EXPIRE || '30d'
-  });
+  const secret = process.env.JWT_REFRESH_SECRET || 'refresh-secret';
+  const expiresIn: string = process.env.JWT_REFRESH_EXPIRE || '30d';
+  return jwt.sign({ id }, secret, { expiresIn } as jwt.SignOptions);
 };

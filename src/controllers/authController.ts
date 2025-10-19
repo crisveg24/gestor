@@ -106,8 +106,8 @@ export const login = async (req: AuthRequest, res: Response, next: NextFunction)
     }
 
     // Generar tokens
-    const token = generateToken(user._id.toString());
-    const refreshToken = generateRefreshToken(user._id.toString());
+    const token = generateToken(String(user._id));
+    const refreshToken = generateRefreshToken(String(user._id));
 
     logger.info('Login exitoso:', { userId: user._id, email: user.email });
 

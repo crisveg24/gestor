@@ -39,7 +39,7 @@ const consoleFormat = winston.format.combine(
 );
 
 // Definir transportes
-const transports = [
+const transports: winston.transport[] = [
   // Logs de error
   new winston.transports.File({
     filename: path.join('logs', 'error.log'),
