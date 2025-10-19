@@ -113,6 +113,54 @@ npm run build
 npm start
 ```
 
+## 🌐 Deployment y Hosting
+
+¿Listo para poner tu aplicación en línea? Tenemos guías completas:
+
+### 📚 Guías de Deployment (GRATIS o $3/año)
+
+1. **[Guía Completa de Deployment](docs/COMPLETE_DEPLOYMENT_GUIDE.md)** ⭐
+   - Paso a paso: de desarrollo a producción
+   - MongoDB Atlas + Render.com + Dominio
+   - Tiempo estimado: 45 minutos
+   - Costo: **$0 - $3 primer año**
+
+2. **[Configurar MongoDB Atlas](docs/MONGODB_ATLAS_SETUP.md)**
+   - Base de datos GRATIS (512MB)
+   - Configuración detallada
+   - Connection strings
+
+3. **[Opciones de Hosting](docs/HOSTING_OPTIONS.md)**
+   - Render.com (GRATIS - recomendado)
+   - Railway.app ($5 crédito/mes)
+   - Fly.io (GRATIS con límites)
+   - Comparativa completa
+
+4. **[Opciones de Dominios](docs/DOMAIN_OPTIONS.md)**
+   - Freenom: Dominios GRATIS (.tk, .ml)
+   - Namecheap: Desde $0.88/año (.xyz)
+   - Porkbun: Desde $1.13/año
+   - Configuración de DNS
+
+### 💰 Costos Estimados
+
+| Servicio | Free Tier | Costo |
+|----------|-----------|-------|
+| **MongoDB Atlas** | 512MB | $0/mes |
+| **Render.com** | 750hrs/mes | $0/mes |
+| **Dominio .xyz** | - | $0.88/año |
+| **SSL Certificate** | Incluido | $0 |
+| **TOTAL** | | **$0.88/año** |
+
+### 🎯 Recomendación
+
+Para empezar sin gastar dinero:
+1. MongoDB Atlas (gratis)
+2. Render.com (gratis)
+3. Usar subdominio de Render: `tu-app.onrender.com`
+
+Cuando tengas presupuesto, compra un dominio .xyz por $0.88/año
+
 ## 📚 API Endpoints
 
 ### Autenticación (`/api/auth`)
