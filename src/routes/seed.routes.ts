@@ -1,41 +1,26 @@
-import mongoose from 'mongoose';
-import dotenv from 'dotenv';
+import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import Store from '../models/Store';
 import User, { UserRole } from '../models/User';
 import Product from '../models/Product';
-import logger from '../utils/logger';
-import path from 'path';
 
-// Cargar variables de entorno según el ambiente
-const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env';
-dotenv.config({ path: path.join(__dirname, '..', '..', envFile) });
+const router = Router();
 
-console.log('NODE_ENV:', process.env.NODE_ENV);
-console.log('Archivo .env:', envFile);
-console.log('MONGODB_URI:', process.env.MONGODB_URI?.substring(0, 30) + '...');
-
-const connectDB = async () => {
+router.post('/execute-seed', async (_req: Request, res: Response): Promise<void> => {
   try {
-    console.log('Intentando conectar a MongoDB...');
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/gestor-tiendas');
-    logger.info('MongoDB conectado para seed');
-  } catch (error) {
-    logger.error('Error al conectar a MongoDB:', error);
-    process.exit(1);
-  }
-};
-
-const seedData = async () => {
-  try {
-    await connectDB();
+    // Verificar que estemos en producción
+    if (process.env.NODE_ENV !== 'production') {
+      res.status(403).json({ 
+        success: false, 
+        message: 'Este endpoint solo está disponible en producción' 
+      });
+      return;
+    }
 
     // Limpiar datos existentes
     await Store.deleteMany({});
     await User.deleteMany({});
     await Product.deleteMany({});
-
-    logger.info('Datos antiguos eliminados');
 
     // Crear tiendas
     const stores = await Store.insertMany([
@@ -69,8 +54,6 @@ const seedData = async () => {
       }
     ]);
 
-    logger.info(`${stores.length} tiendas creadas`);
-
     // Crear usuario administrador
     const adminPassword = await bcrypt.hash('Admin123!', 12);
     await User.create({
@@ -89,13 +72,10 @@ const seedData = async () => {
       }
     });
 
-    logger.info('Administrador creado');
-
     // Crear usuarios para cada tienda
-    const users = [];
     for (let i = 0; i < stores.length; i++) {
       const userPassword = await bcrypt.hash('User123!', 12);
-      const user = await User.create({
+      await User.create({
         name: `Usuario ${stores[i].name}`,
         email: `usuario${i + 1}@tienda.com`,
         password: userPassword,
@@ -111,13 +91,10 @@ const seedData = async () => {
           canViewReports: false
         }
       });
-      users.push(user);
     }
 
-    logger.info(`${users.length} usuarios creados`);
-
     // Crear productos de ejemplo
-    const products = await Product.insertMany([
+    await Product.insertMany([
       {
         name: 'Laptop Dell XPS 13',
         description: 'Laptop ultraportátil con procesador Intel i7',
@@ -167,79 +144,26 @@ const seedData = async () => {
         price: 349.99,
         cost: 249.99,
         isActive: true
-      },
-      {
-        name: 'Webcam Logitech 1080p',
-        description: 'Webcam Full HD para videoconferencias',
-        sku: 'WEB-001',
-        barcode: '7501234567895',
-        category: 'Accesorios',
-        price: 79.99,
-        cost: 49.99,
-        isActive: true
-      },
-      {
-        name: 'Disco Duro Externo 2TB',
-        description: 'Disco duro portátil de 2TB USB 3.0',
-        sku: 'HDD-001',
-        barcode: '7501234567896',
-        category: 'Almacenamiento',
-        price: 89.99,
-        cost: 59.99,
-        isActive: true
-      },
-      {
-        name: 'Memoria USB 64GB',
-        description: 'Memoria USB 3.0 de alta velocidad',
-        sku: 'USB-001',
-        barcode: '7501234567897',
-        category: 'Almacenamiento',
-        price: 19.99,
-        cost: 9.99,
-        isActive: true
-      },
-      {
-        name: 'Router WiFi 6',
-        description: 'Router inalámbrico de última generación',
-        sku: 'ROU-001',
-        barcode: '7501234567898',
-        category: 'Redes',
-        price: 149.99,
-        cost: 99.99,
-        isActive: true
-      },
-      {
-        name: 'Cable HDMI 2.1 3m',
-        description: 'Cable HDMI 2.1 de 3 metros',
-        sku: 'CAB-001',
-        barcode: '7501234567899',
-        category: 'Accesorios',
-        price: 24.99,
-        cost: 12.99,
-        isActive: true
       }
     ]);
 
-    logger.info(`${products.length} productos creados`);
-
-    logger.info('\n=== CREDENCIALES DE ACCESO ===');
-    logger.info('\nAdministrador:');
-    logger.info('Email: admin@tienda.com');
-    logger.info('Password: Admin123!');
-    
-    logger.info('\nUsuarios de tienda:');
-    for (let i = 0; i < users.length; i++) {
-      logger.info(`\n${stores[i].name}:`);
-      logger.info(`Email: usuario${i + 1}@tienda.com`);
-      logger.info(`Password: User123!`);
-    }
-
-    logger.info('\n=== Seed completado exitosamente ===');
-    process.exit(0);
+    res.json({
+      success: true,
+      message: 'Base de datos sembrada exitosamente',
+      data: {
+        stores: stores.length,
+        users: 5,
+        products: 5
+      }
+    });
   } catch (error) {
-    logger.error('Error en seed:', error);
-    process.exit(1);
+    console.error('Error en seed:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al sembrar la base de datos',
+      error: error instanceof Error ? error.message : 'Error desconocido'
+    });
   }
-};
+});
 
-seedData();
+export default router;

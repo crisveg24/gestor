@@ -1,0 +1,17 @@
+name: Keep API Alive
+
+on:
+  schedule:
+    # Ejecutar cada 5 minutos
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # Permite ejecución manual
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping API
+        run: |
+          curl -f https://gestor-qlwn.onrender.com/health || echo "API sleeping, waking up..."
+          sleep 10
+          curl -f https://gestor-qlwn.onrender.com/health

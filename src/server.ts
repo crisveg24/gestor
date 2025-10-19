@@ -75,6 +75,7 @@ import productRoutes from './routes/productRoutes';
 import inventoryRoutes from './routes/inventoryRoutes';
 import salesRoutes from './routes/salesRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
+import seedRoutes from './routes/seed.routes';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/stores', storeRoutes);
@@ -83,6 +84,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/seed', seedRoutes);
 
 // Ruta de health check
 app.get('/health', (_req: Request, res: Response) => {
