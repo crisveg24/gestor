@@ -1,9 +1,11 @@
 import { Response, NextFunction } from 'express';
 import { body } from 'express-validator';
 import Product from '../models/Product';
+import Inventory from '../models/Inventory';
 import { AuthRequest } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import logger from '../utils/logger';
+import mongoose from 'mongoose';
 
 // @desc    Obtener todos los productos
 // @route   GET /api/products
@@ -107,6 +109,81 @@ export const createProduct = async (req: AuthRequest, res: Response, next: NextF
     });
   } catch (error) {
     next(error);
+  }
+};
+
+// @desc    Crear producto con inventario
+// @route   POST /api/products/with-inventory
+// @access  Private
+export const createProductWithInventory = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { name, description, sku, barcode, category, price, cost, store, quantity, minStock, maxStock } = req.body;
+
+    // Validar campos requeridos
+    if (!name || !sku || !category || price === undefined || cost === undefined) {
+      throw new AppError('Faltan campos requeridos', 400);
+    }
+
+    if (!store || !quantity) {
+      throw new AppError('Se requiere tienda y cantidad para crear el inventario', 400);
+    }
+
+    // Verificar que el SKU no exista
+    const existingProduct = await Product.findOne({ sku });
+    if (existingProduct) {
+      throw new AppError('El SKU ya existe', 400);
+    }
+
+    // Crear el producto
+    const productData = {
+      name,
+      description,
+      sku,
+      barcode,
+      category,
+      price,
+      cost,
+      isActive: true
+    };
+
+    const [product] = await Product.create([productData], { session });
+
+    // Crear el inventario
+    const inventoryData = {
+      store,
+      product: product._id,
+      quantity: Number(quantity),
+      minStock: minStock ? Number(minStock) : 10,
+      maxStock: maxStock ? Number(maxStock) : 1000,
+      lastRestockDate: new Date()
+    };
+
+    const [inventory] = await Inventory.create([inventoryData], { session });
+
+    await session.commitTransaction();
+
+    logger.info('Producto con inventario creado:', {
+      productId: product._id,
+      inventoryId: inventory._id,
+      store,
+      createdBy: req.user?._id
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        product,
+        inventory
+      }
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    next(error);
+  } finally {
+    session.endSession();
   }
 };
 

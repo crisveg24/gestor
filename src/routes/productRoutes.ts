@@ -3,6 +3,7 @@ import {
   getProducts,
   getProductById,
   createProduct,
+  createProductWithInventory,
   updateProduct,
   deleteProduct,
   getCategories,
@@ -21,6 +22,9 @@ router.use(protect);
 router.get('/', getProducts);
 router.get('/categories/list', getCategories);
 router.get('/:id', getProductById);
+
+// Ruta para crear producto con inventario (todos los usuarios autenticados)
+router.post('/with-inventory', createProductValidation, validate, createProductWithInventory);
 
 // Rutas solo para administradores
 router.post('/', authorize(UserRole.ADMIN), createProductValidation, validate, createProduct);
