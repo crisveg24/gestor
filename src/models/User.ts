@@ -63,9 +63,8 @@ const UserSchema: Schema = new Schema(
     store: {
       type: Schema.Types.ObjectId,
       ref: 'Store',
-      required: function(this: IUser) {
-        return this.role === UserRole.USER;
-      }
+      required: false,
+      default: null
     },
     permissions: {
       canAddInventory: { type: Boolean, default: false },

@@ -83,7 +83,8 @@ const SaleSchema: Schema = new Schema(
     paymentMethod: {
       type: String,
       required: [true, 'El método de pago es requerido'],
-      enum: ['cash', 'card', 'transfer', 'other']
+      enum: ['efectivo', 'nequi', 'daviplata', 'llave_bancolombia', 'tarjeta', 'transferencia'],
+      default: 'efectivo'
     },
     status: {
       type: String,

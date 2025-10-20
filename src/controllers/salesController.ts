@@ -351,7 +351,7 @@ export const createSaleValidation = [
   body('items.*.product').isMongoId().withMessage('ID de producto inválido'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('La cantidad debe ser al menos 1'),
   body('items.*.unitPrice').isFloat({ min: 0 }).withMessage('El precio unitario debe ser positivo'),
-  body('paymentMethod').isIn(['cash', 'card', 'transfer', 'other']).withMessage('Método de pago inválido'),
+  body('paymentMethod').isIn(['efectivo', 'nequi', 'daviplata', 'llave_bancolombia', 'tarjeta', 'transferencia']).withMessage('Método de pago inválido'),
   body('tax').optional().isFloat({ min: 0 }).withMessage('El impuesto debe ser positivo'),
   body('discount').optional().isFloat({ min: 0 }).withMessage('El descuento debe ser positivo')
 ];
@@ -359,3 +359,115 @@ export const createSaleValidation = [
 export const cancelSaleValidation = [
   body('reason').notEmpty().withMessage('La razón de cancelación es requerida')
 ];
+
+// @desc    Obtener datos para corte de caja diario
+// @route   GET /api/sales/daily-cut
+// @access  Private
+export const getDailyCut = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { storeId, date } = req.query;
+
+    // Determinar la tienda a consultar
+    let targetStore = storeId;
+    if (req.user?.role !== UserRole.ADMIN) {
+      // Si no es admin, solo puede ver su propia tienda
+      if (!req.user?.store) {
+        throw new AppError('No tienes una tienda asignada', 403);
+      }
+      if (storeId && storeId !== req.user?.store?.toString()) {
+        throw new AppError('No tiene acceso a esta tienda', 403);
+      }
+      targetStore = req.user?.store?.toString();
+    }
+
+    if (!targetStore) {
+      throw new AppError('Debe especificar una tienda', 400);
+    }
+
+    // Determinar el rango de fechas (por defecto: día actual)
+    const targetDate = date ? new Date(date as string) : new Date();
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Obtener la tienda
+    const store = await Store.findById(targetStore);
+    if (!store) {
+      throw new AppError('Tienda no encontrada', 404);
+    }
+
+    // Query base
+    const matchQuery: any = {
+      store: targetStore,
+      status: SaleStatus.COMPLETED,
+      createdAt: {
+        $gte: startOfDay,
+        $lte: endOfDay
+      }
+    };
+
+    // Obtener todas las ventas del día con detalles
+    const sales = await Sale.find(matchQuery)
+      .populate('soldBy', 'name email')
+      .populate('items.product', 'name sku')
+      .sort({ createdAt: -1 });
+
+    // Agrupar por método de pago
+    const paymentMethods = await Sale.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: '$paymentMethod',
+          total: { $sum: '$finalTotal' },
+          count: { $sum: 1 },
+          transactions: {
+            $push: {
+              id: '$_id',
+              total: '$finalTotal',
+              createdAt: '$createdAt'
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          method: '$_id',
+          total: 1,
+          count: 1,
+          transactions: 1
+        }
+      }
+    ]);
+
+    // Calcular totales
+    const totalSales = sales.length;
+    const totalRevenue = sales.reduce((sum, sale) => sum + sale.finalTotal, 0);
+    const totalTax = sales.reduce((sum, sale) => sum + sale.tax, 0);
+    const totalDiscount = sales.reduce((sum, sale) => sum + sale.discount, 0);
+
+    res.json({
+      success: true,
+      data: {
+        date: targetDate.toISOString().split('T')[0],
+        store: {
+          _id: store._id,
+          name: store.name,
+          address: store.address
+        },
+        summary: {
+          totalSales,
+          totalRevenue,
+          totalTax,
+          totalDiscount
+        },
+        paymentMethods,
+        sales
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};

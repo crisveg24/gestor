@@ -309,3 +309,97 @@ export const getStoresComparison = async (req: AuthRequest, res: Response, next:
     next(error);
   }
 };
+
+// @desc    Estadísticas por método de pago del día
+// @route   GET /api/dashboard/payment-methods
+// @access  Private
+export const getPaymentMethodsStats = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { storeId, date } = req.query;
+
+    // Determinar la tienda a consultar
+    let targetStore = storeId;
+    if (req.user?.role !== UserRole.ADMIN) {
+      // Si no es admin, solo puede ver su propia tienda
+      if (storeId && storeId !== req.user?.store?.toString()) {
+        throw new AppError('No tiene acceso a esta tienda', 403);
+      }
+      targetStore = req.user?.store?.toString();
+    }
+
+    // Determinar el rango de fechas (por defecto: día actual)
+    const targetDate = date ? new Date(date as string) : new Date();
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Query base
+    const matchQuery: any = {
+      status: SaleStatus.COMPLETED,
+      createdAt: {
+        $gte: startOfDay,
+        $lte: endOfDay
+      }
+    };
+
+    // Filtrar por tienda si se especificó
+    if (targetStore) {
+      matchQuery.store = targetStore;
+    }
+
+    // Agregación por método de pago
+    const stats = await Sale.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: '$paymentMethod',
+          total: { $sum: '$finalTotal' },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          method: '$_id',
+          total: 1,
+          count: 1
+        }
+      }
+    ]);
+
+    // Calcular el total general y porcentajes
+    const grandTotal = stats.reduce((sum, item) => sum + item.total, 0);
+    
+    const statsWithPercentage = stats.map(item => ({
+      ...item,
+      percentage: grandTotal > 0 ? (item.total / grandTotal) * 100 : 0
+    }));
+
+    // Asegurar que todos los métodos estén presentes (incluso con $0)
+    const allMethods = ['efectivo', 'nequi', 'daviplata', 'llave_bancolombia', 'tarjeta', 'transferencia'];
+    const existingMethods = new Set(statsWithPercentage.map(s => s.method));
+    
+    for (const method of allMethods) {
+      if (!existingMethods.has(method)) {
+        statsWithPercentage.push({
+          method,
+          total: 0,
+          count: 0,
+          percentage: 0
+        });
+      }
+    }
+
+    // Ordenar por total descendente
+    statsWithPercentage.sort((a, b) => b.total - a.total);
+
+    res.json({
+      success: true,
+      data: statsWithPercentage
+    });
+  } catch (error) {
+    next(error);
+  }
+};

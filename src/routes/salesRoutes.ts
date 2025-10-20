@@ -5,6 +5,7 @@ import {
   getSaleById,
   cancelSale,
   getSalesStats,
+  getDailyCut,
   createSaleValidation,
   cancelSaleValidation
 } from '../controllers/salesController';
@@ -18,6 +19,9 @@ router.use(protect);
 
 // Crear venta
 router.post('/', checkPermission('canAddSale'), createSaleValidation, validate, createSale);
+
+// Corte de caja diario
+router.get('/daily-cut', getDailyCut);
 
 // Obtener ventas de una tienda
 router.get('/:storeId', checkStoreAccess, checkPermission('canViewSales'), getStoreSales);
