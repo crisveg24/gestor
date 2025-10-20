@@ -163,4 +163,30 @@ router.post('/execute-seed', async (_req: Request, res: Response): Promise<void>
   }
 });
 
+// Endpoint de debug para verificar usuarios
+router.get('/check-user/:email', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = await User.findOne({ email: req.params.email }).select('+password');
+    
+    if (!user) {
+      res.json({ found: false });
+      return;
+    }
+
+    res.json({
+      found: true,
+      email: user.email,
+      role: user.role,
+      isActive: user.isActive,
+      passwordLength: user.password.length,
+      passwordStartsWith: user.password.substring(0, 10)
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Error desconocido'
+    });
+  }
+});
+
 export default router;
