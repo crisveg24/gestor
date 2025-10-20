@@ -18,6 +18,9 @@ connectDB();
 // Inicializar app
 const app: Application = express();
 
+// Trust proxy - necesario para Render y rate limiting
+app.set('trust proxy', 1);
+
 // Middlewares de seguridad
 app.use(helmet({
   contentSecurityPolicy: {
