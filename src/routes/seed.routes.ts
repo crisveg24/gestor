@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import Store from '../models/Store';
 import User, { UserRole } from '../models/User';
 import Product from '../models/Product';
@@ -180,6 +181,37 @@ router.get('/check-user/:email', async (req: Request, res: Response): Promise<vo
       isActive: user.isActive,
       passwordLength: user.password.length,
       passwordStartsWith: user.password.substring(0, 10)
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Error desconocido'
+    });
+  }
+});
+
+// Endpoint de prueba de login directo
+router.post('/test-login', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email }).select('+password');
+    
+    if (!user) {
+      res.json({ success: false, message: 'Usuario no encontrado' });
+      return;
+    }
+
+    const directCompare = await bcrypt.compare(password, user.password);
+    const methodCompare = await user.comparePassword(password);
+
+    res.json({
+      success: true,
+      email: user.email,
+      passwordProvided: password,
+      passwordLength: user.password.length,
+      directBcryptCompare: directCompare,
+      modelMethodCompare: methodCompare,
+      passwordHash: user.password.substring(0, 20)
     });
   } catch (error) {
     res.status(500).json({
