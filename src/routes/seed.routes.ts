@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
 import Store from '../models/Store';
 import User, { UserRole } from '../models/User';
 import Product from '../models/Product';
@@ -55,11 +54,10 @@ router.post('/execute-seed', async (_req: Request, res: Response): Promise<void>
     ]);
 
     // Crear usuario administrador
-    const adminPassword = await bcrypt.hash('Admin123!', 12);
     await User.create({
       name: 'Administrador Principal',
       email: 'admin@tienda.com',
-      password: adminPassword,
+      password: 'Admin123!',
       role: UserRole.ADMIN,
       isActive: true,
       permissions: {
@@ -74,11 +72,10 @@ router.post('/execute-seed', async (_req: Request, res: Response): Promise<void>
 
     // Crear usuarios para cada tienda
     for (let i = 0; i < stores.length; i++) {
-      const userPassword = await bcrypt.hash('User123!', 12);
       await User.create({
         name: `Usuario ${stores[i].name}`,
         email: `usuario${i + 1}@tienda.com`,
-        password: userPassword,
+        password: 'User123!',
         role: UserRole.USER,
         store: stores[i]._id,
         isActive: true,
