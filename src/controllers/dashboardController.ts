@@ -87,16 +87,94 @@ export const getGlobalStats = async (req: AuthRequest, res: Response, next: Next
       }
     ]);
 
+    // Comparar con período anterior para growth
+    const periodDays = 30; // Por defecto últimos 30 días
+    const previousPeriodStart = new Date();
+    previousPeriodStart.setDate(previousPeriodStart.getDate() - (periodDays * 2));
+    const previousPeriodEnd = new Date();
+    previousPeriodEnd.setDate(previousPeriodEnd.getDate() - periodDays);
+
+    const currentPeriodStart = new Date();
+    currentPeriodStart.setDate(currentPeriodStart.getDate() - periodDays);
+
+    const currentPeriodSales = await Sale.aggregate([
+      {
+        $match: {
+          status: SaleStatus.COMPLETED,
+          createdAt: { $gte: currentPeriodStart }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          count: { $sum: 1 },
+          revenue: { $sum: '$finalTotal' }
+        }
+      }
+    ]);
+
+    const previousPeriodSales = await Sale.aggregate([
+      {
+        $match: {
+          status: SaleStatus.COMPLETED,
+          createdAt: { 
+            $gte: previousPeriodStart,
+            $lte: previousPeriodEnd
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          count: { $sum: 1 },
+          revenue: { $sum: '$finalTotal' }
+        }
+      }
+    ]);
+
+    const current = currentPeriodSales[0] || { count: 0, revenue: 0 };
+    const previous = previousPeriodSales[0] || { count: 0, revenue: 0 };
+
+    // Calcular porcentajes de crecimiento
+    const salesGrowth = previous.count > 0 
+      ? ((current.count - previous.count) / previous.count) * 100 
+      : 0;
+    
+    const revenueGrowth = previous.revenue > 0
+      ? ((current.revenue - previous.revenue) / previous.revenue) * 100
+      : 0;
+
+    // Total de productos únicos
+    const totalProducts = await Inventory.distinct('product').then(products => products.length);
+
     res.json({
       success: true,
       data: {
         overview: {
           totalStores,
           totalUsers,
+          totalProducts,
           lowStockCount,
           ...(salesStats[0] || { totalSales: 0, totalRevenue: 0, averageTicket: 0 })
         },
-        today: todaySales[0] || { count: 0, revenue: 0 },
+        growth: {
+          sales: Math.round(salesGrowth * 100) / 100,
+          revenue: Math.round(revenueGrowth * 100) / 100
+        },
+        today: {
+          sales: todaySales[0]?.count || 0,
+          revenue: todaySales[0]?.revenue || 0
+        },
+        period: {
+          current: {
+            sales: current.count,
+            revenue: Math.round(current.revenue * 100) / 100
+          },
+          previous: {
+            sales: previous.count,
+            revenue: Math.round(previous.revenue * 100) / 100
+          }
+        },
         salesByStore
       }
     });
@@ -304,6 +382,169 @@ export const getStoresComparison = async (req: AuthRequest, res: Response, next:
     res.json({
       success: true,
       data: comparison
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Tendencia de ventas (últimos 30 días)
+// @route   GET /api/dashboard/sales-trend
+// @access  Private
+export const getSalesTrend = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { storeId, days = 30 } = req.query;
+
+    // Determinar la tienda a consultar
+    let targetStore = storeId;
+    if (req.user?.role !== UserRole.ADMIN) {
+      if (storeId && storeId !== req.user?.store?.toString()) {
+        throw new AppError('No tiene acceso a esta tienda', 403);
+      }
+      targetStore = req.user?.store?.toString();
+    }
+
+    // Calcular fecha de inicio
+    const daysBack = parseInt(days as string) || 30;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - daysBack);
+    startDate.setHours(0, 0, 0, 0);
+
+    // Query base
+    const matchQuery: any = {
+      status: SaleStatus.COMPLETED,
+      createdAt: { $gte: startDate }
+    };
+
+    if (targetStore) {
+      matchQuery.store = targetStore;
+    }
+
+    // Agregación por día
+    const salesByDay = await Sale.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          sales: { $sum: 1 },
+          revenue: { $sum: '$finalTotal' },
+          averageTicket: { $avg: '$finalTotal' }
+        }
+      },
+      { $sort: { _id: 1 } },
+      {
+        $project: {
+          _id: 0,
+          date: '$_id',
+          sales: 1,
+          revenue: { $round: ['$revenue', 2] },
+          averageTicket: { $round: ['$averageTicket', 2] }
+        }
+      }
+    ]);
+
+    // Llenar días sin ventas con ceros
+    const result = [];
+    const currentDate = new Date(startDate);
+    const today = new Date();
+    
+    while (currentDate <= today) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      const existing = salesByDay.find(d => d.date === dateStr);
+      
+      result.push(existing || {
+        date: dateStr,
+        sales: 0,
+        revenue: 0,
+        averageTicket: 0
+      });
+      
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Productos más vendidos
+// @route   GET /api/dashboard/top-products
+// @access  Private
+export const getTopProducts = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { storeId, limit = 10, startDate, endDate } = req.query;
+
+    // Determinar la tienda a consultar
+    let targetStore = storeId;
+    if (req.user?.role !== UserRole.ADMIN) {
+      if (storeId && storeId !== req.user?.store?.toString()) {
+        throw new AppError('No tiene acceso a esta tienda', 403);
+      }
+      targetStore = req.user?.store?.toString();
+    }
+
+    // Query base
+    const matchQuery: any = { status: SaleStatus.COMPLETED };
+
+    if (targetStore) {
+      matchQuery.store = targetStore;
+    }
+
+    if (startDate || endDate) {
+      matchQuery.createdAt = {};
+      if (startDate) matchQuery.createdAt.$gte = new Date(startDate as string);
+      if (endDate) matchQuery.createdAt.$lte = new Date(endDate as string);
+    }
+
+    // Agregación de productos más vendidos
+    const topProducts = await Sale.aggregate([
+      { $match: matchQuery },
+      { $unwind: '$items' },
+      {
+        $group: {
+          _id: '$items.product',
+          totalQuantity: { $sum: '$items.quantity' },
+          totalRevenue: { $sum: '$items.subtotal' },
+          salesCount: { $sum: 1 }
+        }
+      },
+      { $sort: { totalQuantity: -1 } },
+      { $limit: parseInt(limit as string) || 10 },
+      {
+        $lookup: {
+          from: 'products',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'product'
+        }
+      },
+      { $unwind: '$product' },
+      {
+        $project: {
+          _id: 0,
+          productId: '$_id',
+          name: '$product.name',
+          sku: '$product.sku',
+          category: '$product.category',
+          price: '$product.price',
+          totalQuantity: 1,
+          totalRevenue: { $round: ['$totalRevenue', 2] },
+          salesCount: 1,
+          averagePerSale: { 
+            $round: [{ $divide: ['$totalQuantity', '$salesCount'] }, 2] 
+          }
+        }
+      }
+    ]);
+
+    res.json({
+      success: true,
+      count: topProducts.length,
+      data: topProducts
     });
   } catch (error) {
     next(error);

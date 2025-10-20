@@ -3,7 +3,9 @@ import {
   getGlobalStats,
   getStoreStats,
   getStoresComparison,
-  getPaymentMethodsStats
+  getPaymentMethodsStats,
+  getSalesTrend,
+  getTopProducts
 } from '../controllers/dashboardController';
 import { protect, authorize, checkStoreAccess } from '../middleware/auth';
 import { UserRole } from '../models/User';
@@ -17,6 +19,12 @@ router.get('/global', authorize(UserRole.ADMIN), getGlobalStats);
 
 // Comparación entre tiendas (solo admin)
 router.get('/comparison', authorize(UserRole.ADMIN), getStoresComparison);
+
+// Tendencia de ventas (últimos 30 días)
+router.get('/sales-trend', getSalesTrend);
+
+// Productos más vendidos
+router.get('/top-products', getTopProducts);
 
 // Estadísticas por método de pago
 router.get('/payment-methods', getPaymentMethodsStats);
