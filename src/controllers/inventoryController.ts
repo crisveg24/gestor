@@ -7,6 +7,7 @@ import { AuthRequest } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { UserRole } from '../models/User';
 import logger from '../utils/logger';
+import mongoose from 'mongoose';
 
 // @desc    Obtener inventario (todas las tiendas o filtrado por tienda)
 // @route   GET /api/inventory
@@ -332,4 +333,174 @@ export const updateInventoryValidation = [
   body('operation').optional().isIn(['add', 'subtract', 'set']).withMessage('Operación inválida'),
   body('minStock').optional().isInt({ min: 0 }).withMessage('El stock mínimo debe ser un número positivo'),
   body('maxStock').optional().isInt({ min: 1 }).withMessage('El stock máximo debe ser un número positivo')
+];
+
+// @desc    Ajustar stock de inventario
+// @route   POST /api/inventory/:id/adjust
+// @access  Private
+export const adjustInventory = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { id } = req.params;
+    const { quantity, reason } = req.body;
+
+    logger.info('📦 [ADJUST] Ajustando inventario:', { id, quantity, reason });
+
+    const inventory = await Inventory.findById(id).populate('product').session(session);
+    if (!inventory) {
+      throw new AppError('Item de inventario no encontrado', 404);
+    }
+
+    const previousStock = inventory.quantity;
+    inventory.quantity += quantity;
+    
+    if (inventory.quantity < 0) {
+      throw new AppError('El ajuste resultaría en stock negativo', 400);
+    }
+
+    inventory.updatedBy = req.user?._id as any;
+    await inventory.save({ session });
+
+    // Crear registro de movimiento (si tienes un modelo StockMovement)
+    // const movement = await StockMovement.create([{
+    //   inventory: id,
+    //   type: 'ajuste',
+    //   quantity,
+    //   previousStock,
+    //   newStock: inventory.quantity,
+    //   reason,
+    //   createdBy: req.user?._id
+    // }], { session });
+
+    await session.commitTransaction();
+
+    logger.info('✅ [ADJUST] Stock ajustado:', { 
+      previousStock, 
+      newStock: inventory.quantity 
+    });
+
+    res.json({
+      success: true,
+      data: inventory,
+      message: 'Stock ajustado exitosamente'
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    logger.error('❌ [ADJUST] Error:', error);
+    next(error);
+  } finally {
+    session.endSession();
+  }
+};
+
+// @desc    Transferir stock entre tiendas
+// @route   POST /api/inventory/:id/transfer
+// @access  Private/Admin
+export const transferInventory = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { id } = req.params;
+    const { toStore, quantity } = req.body;
+
+    logger.info('🔄 [TRANSFER] Transfiriendo inventario:', { id, toStore, quantity });
+
+    // Verificar inventario origen
+    const fromInventory = await Inventory.findById(id).populate('product').session(session);
+    if (!fromInventory) {
+      throw new AppError('Item de inventario origen no encontrado', 404);
+    }
+
+    if (fromInventory.quantity < quantity) {
+      throw new AppError('Stock insuficiente para transferir', 400);
+    }
+
+    // Verificar tienda destino
+    const toStoreExists = await Store.findById(toStore).session(session);
+    if (!toStoreExists) {
+      throw new AppError('Tienda destino no encontrada', 404);
+    }
+
+    // Reducir stock de origen
+    fromInventory.quantity -= quantity;
+    fromInventory.updatedBy = req.user?._id as any;
+    await fromInventory.save({ session });
+
+    // Buscar o crear inventario en tienda destino
+    let toInventory = await Inventory.findOne({
+      product: fromInventory.product,
+      store: toStore
+    }).session(session);
+
+    if (toInventory) {
+      toInventory.quantity += quantity;
+      toInventory.updatedBy = req.user?._id as any;
+      await toInventory.save({ session });
+    } else {
+      toInventory = await Inventory.create([{
+        product: fromInventory.product,
+        store: toStore,
+        quantity,
+        minStock: fromInventory.minStock,
+        maxStock: fromInventory.maxStock,
+        createdBy: req.user?._id,
+        updatedBy: req.user?._id
+      }], { session });
+    }
+
+    await session.commitTransaction();
+
+    logger.info('✅ [TRANSFER] Transferencia completada');
+
+    res.json({
+      success: true,
+      data: { fromInventory, toInventory },
+      message: 'Transferencia realizada exitosamente'
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    logger.error('❌ [TRANSFER] Error:', error);
+    next(error);
+  } finally {
+    session.endSession();
+  }
+};
+
+// @desc    Obtener historial de movimientos de un item
+// @route   GET /api/inventory/:id/movements
+// @access  Private
+export const getInventoryMovements = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    logger.info('📋 [MOVEMENTS] Obteniendo movimientos:', id);
+
+    // Por ahora retornamos array vacío
+    // Cuando implementes el modelo StockMovement, descomenta esto:
+    // const movements = await StockMovement.find({ inventory: id })
+    //   .populate('createdBy', 'name')
+    //   .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: [] // movements
+    });
+  } catch (error) {
+    logger.error('❌ [MOVEMENTS] Error:', error);
+    next(error);
+  }
+};
+
+// Validaciones para ajuste y transferencia
+export const adjustInventoryValidation = [
+  body('quantity').isInt({ min: -9999, max: 9999 }).withMessage('Cantidad inválida'),
+  body('reason').notEmpty().withMessage('El motivo es requerido')
+];
+
+export const transferInventoryValidation = [
+  body('toStore').isMongoId().withMessage('ID de tienda destino inválido'),
+  body('quantity').isInt({ min: 1 }).withMessage('La cantidad debe ser mayor a 0')
 ];
