@@ -1,5 +1,6 @@
 import express from 'express';
 import {
+  getAllInventory,
   getStoreInventory,
   addInventoryItem,
   updateInventoryItem,
@@ -16,10 +17,13 @@ const router = express.Router();
 
 router.use(protect);
 
-// Alertas de stock bajo
+// Alertas de stock bajo (debe ir antes que las rutas con parámetros)
 router.get('/alerts/low-stock', getLowStockAlerts);
 
-// Obtener inventario de una tienda
+// Obtener todo el inventario con filtros opcionales (debe ir antes que /:storeId)
+router.get('/', getAllInventory);
+
+// Obtener inventario de una tienda específica
 router.get('/:storeId', checkStoreAccess, checkPermission('canViewInventory'), getStoreInventory);
 
 // Agregar al inventario (solo admins)

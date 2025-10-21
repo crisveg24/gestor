@@ -8,7 +8,97 @@ import { AppError } from '../middleware/errorHandler';
 import { UserRole } from '../models/User';
 import logger from '../utils/logger';
 
-// @desc    Obtener inventario de una tienda
+// @desc    Obtener inventario (todas las tiendas o filtrado por tienda)
+// @route   GET /api/inventory
+// @access  Private
+export const getAllInventory = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { store, search, category, lowStock } = req.query;
+    const user = req.user;
+
+    logger.info('📦 [INVENTORY] Obteniendo inventario:', {
+      userId: user?._id,
+      userRole: user?.role,
+      userStore: user?.store,
+      filterStore: store,
+      search,
+      category,
+      lowStock
+    });
+
+    let query: any = {};
+
+    // Filtrar por tienda si se especifica
+    if (store && store !== 'all') {
+      query.store = store;
+      logger.info('📦 [INVENTORY] Filtrando por tienda específica:', store);
+    }
+    // Si no es admin y no se especifica tienda, usar la tienda del usuario
+    else if (user?.role !== UserRole.ADMIN && user?.store) {
+      query.store = user.store;
+      logger.info('📦 [INVENTORY] Usuario no-admin, usando su tienda:', user.store);
+    }
+    // Si es admin y store='all', mostrar todas las tiendas
+    else if (user?.role === UserRole.ADMIN && store === 'all') {
+      logger.info('📦 [INVENTORY] Admin solicitó todas las tiendas');
+      // No filtrar por tienda
+    }
+    // Si es admin y no especifica store, usar su tienda si la tiene
+    else if (user?.role === UserRole.ADMIN && user?.store) {
+      query.store = user.store;
+      logger.info('📦 [INVENTORY] Admin usando su tienda por defecto:', user.store);
+    }
+
+    // Construir filtros de producto
+    const productQuery: any = {};
+    if (search) {
+      productQuery.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { sku: { $regex: search, $options: 'i' } },
+        { barcode: { $regex: search, $options: 'i' } }
+      ];
+    }
+    if (category) {
+      productQuery.category = category;
+    }
+
+    // Obtener productos que coincidan con los filtros
+    let productIds: string[] | undefined;
+    if (search || category) {
+      const products = await Product.find(productQuery).select('_id');
+      productIds = products.map(p => String(p._id));
+      query.product = { $in: productIds };
+      logger.info('📦 [INVENTORY] Productos encontrados con filtros:', productIds.length);
+    }
+
+    logger.info('📦 [INVENTORY] Query final:', query);
+
+    const inventory = await Inventory.find(query)
+      .populate('product')
+      .populate('store', 'name email')
+      .sort({ 'product.name': 1 });
+
+    logger.info('📦 [INVENTORY] Inventario obtenido:', inventory.length, 'items');
+
+    // Filtrar por stock bajo si se solicita
+    let result = inventory;
+    if (lowStock === 'true') {
+      result = inventory.filter(item => item.quantity <= item.minStock);
+      logger.info('📦 [INVENTORY] Filtrado por stock bajo:', result.length, 'items');
+    }
+
+    res.json({
+      success: true,
+      count: result.length,
+      data: result
+    });
+  } catch (error) {
+    logger.error('❌ [INVENTORY] Error al obtener inventario:', error);
+    next(error);
+  }
+};
+
+// @desc    Obtener inventario de una tienda específica
 // @route   GET /api/inventory/:storeId
 // @access  Private
 export const getStoreInventory = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
