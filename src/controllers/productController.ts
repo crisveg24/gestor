@@ -127,7 +127,7 @@ export const createProductWithInventory = async (req: AuthRequest, res: Response
       throw new AppError('Faltan campos requeridos', 400);
     }
 
-    if (!store || !quantity) {
+    if (!store || quantity === undefined) {
       throw new AppError('Se requiere tienda y cantidad para crear el inventario', 400);
     }
 
