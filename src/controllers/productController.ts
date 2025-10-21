@@ -14,10 +14,19 @@ export const getProducts = async (req: AuthRequest, res: Response, next: NextFun
   try {
     const { search, category, isActive, page = 1, limit = 50 } = req.query;
 
+    console.log('🔍 [PRODUCTS] Búsqueda de productos:', { search, category, isActive });
+
     const query: any = {};
 
+    // Búsqueda flexible por nombre, SKU o código de barras
     if (search) {
-      query.$text = { $search: search as string };
+      const searchRegex = new RegExp(search as string, 'i'); // i = case insensitive
+      query.$or = [
+        { name: searchRegex },
+        { sku: searchRegex },
+        { barcode: searchRegex },
+        { description: searchRegex }
+      ];
     }
 
     if (category) {
@@ -32,6 +41,8 @@ export const getProducts = async (req: AuthRequest, res: Response, next: NextFun
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
+    console.log('📋 [PRODUCTS] Query construida:', JSON.stringify(query, null, 2));
+
     const products = await Product.find(query)
       .sort({ name: 1 })
       .skip(skip)
@@ -39,15 +50,18 @@ export const getProducts = async (req: AuthRequest, res: Response, next: NextFun
 
     const total = await Product.countDocuments(query);
 
+    console.log('✅ [PRODUCTS] Productos encontrados:', products.length);
+
     res.json({
       success: true,
       count: products.length,
       total,
       page: pageNum,
       pages: Math.ceil(total / limitNum),
-      data: products
+      data: { products }
     });
   } catch (error) {
+    console.error('❌ [PRODUCTS] Error al buscar productos:', error);
     next(error);
   }
 };
