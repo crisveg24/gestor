@@ -4,11 +4,13 @@ import {
   getProductById,
   createProduct,
   createProductWithInventory,
+  createProductsWithSizeCurve,
   updateProduct,
   deleteProduct,
   getCategories,
   createProductValidation,
   createProductWithInventoryValidation,
+  createSizeCurveValidation,
   updateProductValidation
 } from '../controllers/productController';
 import { protect, authorize } from '../middleware/auth';
@@ -23,6 +25,10 @@ router.use(protect);
 router.get('/', getProducts);
 router.get('/categories/list', getCategories);
 
+// Ruta para crear productos con curva de tallas (todos los usuarios autenticados)
+// IMPORTANTE: Esta ruta debe ir ANTES de /:id para que no se confunda
+router.post('/size-curve', createSizeCurveValidation, validate, createProductsWithSizeCurve);
+
 // Ruta para crear producto con inventario (todos los usuarios autenticados)
 // IMPORTANTE: Esta ruta debe ir ANTES de /:id para que no se confunda
 router.post('/with-inventory', createProductWithInventoryValidation, validate, createProductWithInventory);
@@ -36,4 +42,3 @@ router.put('/:id', authorize(UserRole.ADMIN), updateProductValidation, validate,
 router.delete('/:id', authorize(UserRole.ADMIN), deleteProduct);
 
 export default router;
-

@@ -382,3 +382,122 @@ export const updateProductValidation = [
   body('cost').optional().isFloat({ min: 0 }).withMessage('El costo debe ser un número positivo'),
   body('isActive').optional().isBoolean().withMessage('isActive debe ser un booleano')
 ];
+
+// @desc    Crear múltiples productos con curva de tallas
+// @route   POST /api/products/size-curve
+// @access  Private/Admin
+export const createProductsWithSizeCurve = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { 
+      baseName, 
+      baseSkuPrefix, 
+      description, 
+      category, 
+      price, 
+      cost, 
+      sizeType, 
+      sizes, // Array de tallas: ["34", "35", "36", ...] o ["XS", "S", "M", ...]
+      store, // Tienda para crear inventario
+      quantityPerSize, // Cantidad por cada talla
+      minStock,
+      maxStock
+    } = req.body;
+
+    logger.info('👟 [SIZE-CURVE] Creando productos con curva de tallas:', {
+      baseName,
+      sizeType,
+      sizesCount: sizes?.length
+    });
+
+    if (!sizes || !Array.isArray(sizes) || sizes.length === 0) {
+      throw new AppError('Debes proporcionar al menos una talla', 400);
+    }
+
+    const createdProducts = [];
+    const createdInventories = [];
+
+    for (const size of sizes) {
+      // Generar SKU único: BASE-TALLA
+      const sku = `${baseSkuPrefix}-${size}`.toUpperCase();
+      
+      // Verificar si el SKU ya existe
+      const skuExists = await Product.findOne({ sku }).session(session);
+      if (skuExists) {
+        logger.warn(`⚠️ [SIZE-CURVE] SKU ${sku} ya existe, saltando...`);
+        continue;
+      }
+
+      // Crear nombre con talla: "Zapato Nike Air - Talla 34"
+      const productName = `${baseName} - Talla ${size}`;
+
+      // Crear producto
+      const product = await Product.create([{
+        name: productName,
+        baseName,
+        description,
+        sku,
+        category,
+        price,
+        cost,
+        sizeType,
+        size,
+        isActive: true
+      }], { session });
+
+      createdProducts.push(product[0]);
+
+      // Si se proporcionó tienda, crear inventario
+      if (store && quantityPerSize !== undefined) {
+        const inventory = await Inventory.create([{
+          product: product[0]._id,
+          store,
+          quantity: quantityPerSize,
+          minStock: minStock || 5,
+          maxStock: maxStock || 50,
+          createdBy: req.user?._id,
+          updatedBy: req.user?._id
+        }], { session });
+
+        createdInventories.push(inventory[0]);
+      }
+    }
+
+    await session.commitTransaction();
+
+    logger.info('✅ [SIZE-CURVE] Curva de tallas creada:', {
+      productsCreated: createdProducts.length,
+      inventoriesCreated: createdInventories.length
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        products: createdProducts,
+        inventories: createdInventories
+      },
+      message: `${createdProducts.length} productos creados con sus tallas`
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    logger.error('❌ [SIZE-CURVE] Error:', error);
+    next(error);
+  } finally {
+    session.endSession();
+  }
+};
+
+// Validación para curva de tallas
+export const createSizeCurveValidation = [
+  body('baseName').trim().notEmpty().withMessage('El nombre base es requerido'),
+  body('baseSkuPrefix').trim().notEmpty().withMessage('El prefijo de SKU es requerido').toUpperCase(),
+  body('category').trim().notEmpty().withMessage('La categoría es requerida'),
+  body('price').isFloat({ min: 0 }).withMessage('El precio debe ser un número positivo'),
+  body('cost').isFloat({ min: 0 }).withMessage('El costo debe ser un número positivo'),
+  body('sizeType').isIn(['zapatos', 'bebe', 'nino', 'adulto', 'unica']).withMessage('Tipo de talla inválido'),
+  body('sizes').isArray({ min: 1 }).withMessage('Debes proporcionar al menos una talla'),
+  body('store').optional().isMongoId().withMessage('ID de tienda inválido'),
+  body('quantityPerSize').optional().isInt({ min: 0 }).withMessage('La cantidad por talla debe ser un número entero positivo')
+];

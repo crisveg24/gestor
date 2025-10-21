@@ -9,6 +9,10 @@ export interface IProduct extends Document {
   price: number;
   cost: number;
   isActive: boolean;
+  // Nuevos campos para tallas
+  baseName?: string; // Nombre base sin talla (ej: "Zapato Nike Air")
+  sizeType?: 'zapatos' | 'bebe' | 'nino' | 'adulto' | 'unica' | null;
+  size?: string; // Talla específica (ej: "34", "XL", "6 meses")
   createdAt: Date;
   updatedAt: Date;
 }
@@ -56,6 +60,22 @@ const ProductSchema: Schema = new Schema(
     isActive: {
       type: Boolean,
       default: true
+    },
+    // Nuevos campos para sistema de tallas
+    baseName: {
+      type: String,
+      trim: true,
+      maxlength: [200, 'El nombre base no puede exceder 200 caracteres']
+    },
+    sizeType: {
+      type: String,
+      enum: ['zapatos', 'bebe', 'nino', 'adulto', 'unica', null],
+      default: null
+    },
+    size: {
+      type: String,
+      trim: true,
+      maxlength: [20, 'La talla no puede exceder 20 caracteres']
     }
   },
   {
@@ -68,6 +88,8 @@ ProductSchema.index({ sku: 1 });
 ProductSchema.index({ barcode: 1 });
 ProductSchema.index({ category: 1 });
 ProductSchema.index({ isActive: 1 });
+ProductSchema.index({ baseName: 1, size: 1 }); // Para buscar productos por nombre base y talla
+ProductSchema.index({ sizeType: 1 }); // Para filtrar por tipo de talla
 ProductSchema.index({ name: 'text', description: 'text' }); // Búsqueda de texto
 
 export default mongoose.model<IProduct>('Product', ProductSchema);

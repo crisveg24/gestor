@@ -440,7 +440,7 @@ export const transferInventory = async (req: AuthRequest, res: Response, next: N
       toInventory.updatedBy = req.user?._id as any;
       await toInventory.save({ session });
     } else {
-      toInventory = await Inventory.create([{
+      const created = await Inventory.create([{
         product: fromInventory.product,
         store: toStore,
         quantity,
@@ -449,6 +449,7 @@ export const transferInventory = async (req: AuthRequest, res: Response, next: N
         createdBy: req.user?._id,
         updatedBy: req.user?._id
       }], { session });
+      toInventory = created[0];
     }
 
     await session.commitTransaction();
