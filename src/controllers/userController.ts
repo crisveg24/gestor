@@ -67,11 +67,7 @@ export const createUser = async (req: AuthRequest, res: Response, next: NextFunc
       throw new AppError('El usuario ya existe', 400);
     }
 
-    // Validar que usuarios y gerentes tengan asignada una tienda
-    if (role === UserRole.USER && !store) {
-      throw new AppError('Los usuarios deben estar asignados a una tienda', 400);
-    }
-
+    // Nota: La tienda es opcional, puede asignarse después
     const userData: any = {
       name,
       email,
@@ -80,7 +76,7 @@ export const createUser = async (req: AuthRequest, res: Response, next: NextFunc
       permissions: permissions || undefined
     };
 
-    // Solo asignar tienda si no es admin
+    // Solo asignar tienda si se proporciona y no es admin
     if (role !== UserRole.ADMIN && store) {
       userData.store = store;
     }
