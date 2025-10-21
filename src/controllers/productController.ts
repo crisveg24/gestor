@@ -122,9 +122,15 @@ export const createProductWithInventory = async (req: AuthRequest, res: Response
   try {
     const { name, description, sku, barcode, category, price, cost, store, quantity, minStock, maxStock } = req.body;
 
+    // Log para debugging
+    logger.info('Intentando crear producto con inventario:', {
+      body: req.body,
+      userId: req.user?._id
+    });
+
     // Validar campos requeridos
     if (!name || !sku || !category || price === undefined || cost === undefined) {
-      throw new AppError('Faltan campos requeridos', 400);
+      throw new AppError('Faltan campos requeridos del producto', 400);
     }
 
     if (!store || quantity === undefined) {

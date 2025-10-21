@@ -214,8 +214,8 @@ export const createUserValidation = [
   body('name').trim().notEmpty().withMessage('El nombre es requerido'),
   body('email').isEmail().withMessage('Email inválido').normalizeEmail(),
   body('password')
-    .isLength({ min: 6 })
-    .withMessage('La contraseña debe tener al menos 6 caracteres'),
+    .isLength({ min: 8 })
+    .withMessage('La contraseña debe tener al menos 8 caracteres'),
   body('role').isIn(Object.values(UserRole)).withMessage('Rol inválido'),
   body('store').optional().isMongoId().withMessage('ID de tienda inválido'),
 ];
