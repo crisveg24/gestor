@@ -204,7 +204,9 @@ export const createProductWithInventory = async (req: AuthRequest, res: Response
       quantity: Number(quantity),
       minStock: minStock ? Number(minStock) : 10,
       maxStock: maxStock ? Number(maxStock) : 1000,
-      lastRestockDate: new Date()
+      lastRestockDate: new Date(),
+      createdBy: req.user?._id,
+      updatedBy: req.user?._id,
     };
     logger.info('📦 [BACKEND] Datos del inventario a crear:', inventoryData);
 
