@@ -8,6 +8,7 @@ import {
   deleteProduct,
   getCategories,
   createProductValidation,
+  createProductWithInventoryValidation,
   updateProductValidation
 } from '../controllers/productController';
 import { protect, authorize } from '../middleware/auth';
@@ -24,7 +25,7 @@ router.get('/categories/list', getCategories);
 
 // Ruta para crear producto con inventario (todos los usuarios autenticados)
 // IMPORTANTE: Esta ruta debe ir ANTES de /:id para que no se confunda
-router.post('/with-inventory', createProductValidation, validate, createProductWithInventory);
+router.post('/with-inventory', createProductWithInventoryValidation, validate, createProductWithInventory);
 
 // Rutas solo para administradores
 router.post('/', authorize(UserRole.ADMIN), createProductValidation, validate, createProduct);
@@ -35,3 +36,4 @@ router.put('/:id', authorize(UserRole.ADMIN), updateProductValidation, validate,
 router.delete('/:id', authorize(UserRole.ADMIN), deleteProduct);
 
 export default router;
+

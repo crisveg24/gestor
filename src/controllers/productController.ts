@@ -344,6 +344,20 @@ export const createProductValidation = [
   body('cost').isFloat({ min: 0 }).withMessage('El costo debe ser un número positivo')
 ];
 
+// Validación específica para crear producto con inventario
+export const createProductWithInventoryValidation = [
+  body('name').trim().notEmpty().withMessage('El nombre es requerido'),
+  body('sku').trim().notEmpty().withMessage('El SKU es requerido').toUpperCase(),
+  body('category').trim().notEmpty().withMessage('La categoría es requerida'),
+  body('price').isFloat({ min: 0 }).withMessage('El precio debe ser un número positivo'),
+  body('cost').isFloat({ min: 0 }).withMessage('El costo debe ser un número positivo'),
+  // Campos del inventario
+  body('store').trim().notEmpty().withMessage('La tienda es requerida'),
+  body('quantity').isInt({ min: 0 }).withMessage('La cantidad debe ser un número entero positivo'),
+  body('minStock').optional().isInt({ min: 0 }).withMessage('El stock mínimo debe ser un número entero positivo'),
+  body('maxStock').optional().isInt({ min: 1 }).withMessage('El stock máximo debe ser un número entero mayor a 0')
+];
+
 export const updateProductValidation = [
   body('name').optional().trim().notEmpty().withMessage('El nombre no puede estar vacío'),
   body('sku').optional().trim().notEmpty().withMessage('El SKU no puede estar vacío').toUpperCase(),
