@@ -21,13 +21,16 @@ router.use(protect);
 // Rutas accesibles para todos los usuarios autenticados
 router.get('/', getProducts);
 router.get('/categories/list', getCategories);
-router.get('/:id', getProductById);
 
 // Ruta para crear producto con inventario (todos los usuarios autenticados)
+// IMPORTANTE: Esta ruta debe ir ANTES de /:id para que no se confunda
 router.post('/with-inventory', createProductValidation, validate, createProductWithInventory);
 
 // Rutas solo para administradores
 router.post('/', authorize(UserRole.ADMIN), createProductValidation, validate, createProduct);
+
+// Estas rutas deben ir al final porque /:id puede coincidir con cualquier cosa
+router.get('/:id', getProductById);
 router.put('/:id', authorize(UserRole.ADMIN), updateProductValidation, validate, updateProduct);
 router.delete('/:id', authorize(UserRole.ADMIN), deleteProduct);
 

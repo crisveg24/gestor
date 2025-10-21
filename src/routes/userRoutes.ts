@@ -2,9 +2,11 @@ import express from 'express';
 import {
   getUsers,
   getUserById,
+  createUser,
   updateUser,
   deleteUser,
   resetLoginAttempts,
+  createUserValidation,
   updateUserValidation
 } from '../controllers/userController';
 import { protect, authorize } from '../middleware/auth';
@@ -17,6 +19,7 @@ const router = express.Router();
 router.use(protect, authorize(UserRole.ADMIN));
 
 router.get('/', getUsers);
+router.post('/', createUserValidation, validate, createUser);
 router.get('/:id', getUserById);
 router.put('/:id', updateUserValidation, validate, updateUser);
 router.delete('/:id', deleteUser);

@@ -54,6 +54,58 @@ export const getUserById = async (req: AuthRequest, res: Response, next: NextFun
   }
 };
 
+// @desc    Crear nuevo usuario
+// @route   POST /api/users
+// @access  Private/Admin
+export const createUser = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { name, email, password, role, store, permissions } = req.body;
+
+    // Verificar si el usuario ya existe
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      throw new AppError('El usuario ya existe', 400);
+    }
+
+    // Validar que usuarios y gerentes tengan asignada una tienda
+    if (role === UserRole.USER && !store) {
+      throw new AppError('Los usuarios deben estar asignados a una tienda', 400);
+    }
+
+    const userData: any = {
+      name,
+      email,
+      password,
+      role,
+      permissions: permissions || undefined
+    };
+
+    // Solo asignar tienda si no es admin
+    if (role !== UserRole.ADMIN && store) {
+      userData.store = store;
+    }
+
+    const user = await User.create(userData);
+
+    // Populate store info
+    await user.populate('store', 'name');
+
+    logger.info('Usuario creado:', {
+      userId: user._id,
+      email: user.email,
+      role: user.role,
+      createdBy: req.user?._id
+    });
+
+    res.status(201).json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Actualizar usuario
 // @route   PUT /api/users/:id
 // @access  Private/Admin
@@ -162,6 +214,16 @@ export const resetLoginAttempts = async (req: AuthRequest, res: Response, next: 
 };
 
 // Validaciones
+export const createUserValidation = [
+  body('name').trim().notEmpty().withMessage('El nombre es requerido'),
+  body('email').isEmail().withMessage('Email inválido').normalizeEmail(),
+  body('password')
+    .isLength({ min: 6 })
+    .withMessage('La contraseña debe tener al menos 6 caracteres'),
+  body('role').isIn(Object.values(UserRole)).withMessage('Rol inválido'),
+  body('store').optional().isMongoId().withMessage('ID de tienda inválido'),
+];
+
 export const updateUserValidation = [
   body('name').optional().trim().notEmpty().withMessage('El nombre no puede estar vacío'),
   body('email').optional().isEmail().withMessage('Email inválido').normalizeEmail(),
