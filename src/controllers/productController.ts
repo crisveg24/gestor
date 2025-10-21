@@ -122,28 +122,65 @@ export const createProductWithInventory = async (req: AuthRequest, res: Response
   try {
     const { name, description, sku, barcode, category, price, cost, store, quantity, minStock, maxStock } = req.body;
 
-    // Log para debugging
-    logger.info('Intentando crear producto con inventario:', {
-      body: req.body,
-      userId: req.user?._id
+    // Log EXHAUSTIVO para debugging
+    logger.info('🛍️ [BACKEND] Recibiendo petición crear producto con inventario');
+    logger.info('🛍️ [BACKEND] Body completo:', req.body);
+    logger.info('🛍️ [BACKEND] Campos extraídos:', {
+      name, description, sku, barcode, category, price, cost, store, quantity, minStock, maxStock
     });
+    logger.info('🛍️ [BACKEND] Tipos de datos:', {
+      name: typeof name,
+      sku: typeof sku,
+      category: typeof category,
+      price: typeof price,
+      cost: typeof cost,
+      store: typeof store,
+      quantity: typeof quantity,
+      minStock: typeof minStock,
+      maxStock: typeof maxStock,
+    });
+    logger.info('🛍️ [BACKEND] Usuario:', { id: req.user?._id, email: req.user?.email, role: req.user?.role });
 
-    // Validar campos requeridos
+    // Validar campos requeridos del producto
+    logger.info('🛍️ [BACKEND] Validando campos del producto...');
     if (!name || !sku || !category || price === undefined || cost === undefined) {
-      throw new AppError('Faltan campos requeridos del producto', 400);
+      logger.error('❌ [BACKEND] Faltan campos del producto:', {
+        hasName: !!name,
+        hasSku: !!sku,
+        hasCategory: !!category,
+        hasPrice: price !== undefined,
+        hasCost: cost !== undefined,
+      });
+      throw new AppError('Faltan campos requeridos del producto (name, sku, category, price, cost)', 400);
     }
 
+    // Validar campos del inventario
+    logger.info('🛍️ [BACKEND] Validando campos del inventario...');
     if (!store || quantity === undefined) {
-      throw new AppError('Se requiere tienda y cantidad para crear el inventario', 400);
+      logger.error('❌ [BACKEND] Faltan campos del inventario:', {
+        hasStore: !!store,
+        storeValue: store,
+        hasQuantity: quantity !== undefined,
+        quantityValue: quantity,
+      });
+      throw new AppError('Se requiere tienda (store) y cantidad (quantity) para crear el inventario', 400);
     }
+
+    logger.info('✅ [BACKEND] Validaciones pasadas correctamente');
+
+    logger.info('✅ [BACKEND] Validaciones pasadas correctamente');
 
     // Verificar que el SKU no exista
+    logger.info('🔍 [BACKEND] Verificando SKU único...');
     const existingProduct = await Product.findOne({ sku });
     if (existingProduct) {
+      logger.error('❌ [BACKEND] SKU ya existe:', sku);
       throw new AppError('El SKU ya existe', 400);
     }
+    logger.info('✅ [BACKEND] SKU único confirmado');
 
     // Crear el producto
+    logger.info('📝 [BACKEND] Creando producto...');
     const productData = {
       name,
       description,
@@ -154,10 +191,13 @@ export const createProductWithInventory = async (req: AuthRequest, res: Response
       cost,
       isActive: true
     };
+    logger.info('📝 [BACKEND] Datos del producto a crear:', productData);
 
     const [product] = await Product.create([productData], { session });
+    logger.info('✅ [BACKEND] Producto creado:', { id: product._id, name: product.name });
 
     // Crear el inventario
+    logger.info('📦 [BACKEND] Creando inventario...');
     const inventoryData = {
       store,
       product: product._id,
@@ -166,12 +206,15 @@ export const createProductWithInventory = async (req: AuthRequest, res: Response
       maxStock: maxStock ? Number(maxStock) : 1000,
       lastRestockDate: new Date()
     };
+    logger.info('📦 [BACKEND] Datos del inventario a crear:', inventoryData);
 
     const [inventory] = await Inventory.create([inventoryData], { session });
+    logger.info('✅ [BACKEND] Inventario creado:', { id: inventory._id, store, quantity });
 
     await session.commitTransaction();
+    logger.info('✅ [BACKEND] Transacción completada exitosamente');
 
-    logger.info('Producto con inventario creado:', {
+    logger.info('🎉 [BACKEND] Producto con inventario creado exitosamente:', {
       productId: product._id,
       inventoryId: inventory._id,
       store,
@@ -187,6 +230,11 @@ export const createProductWithInventory = async (req: AuthRequest, res: Response
     });
   } catch (error) {
     await session.abortTransaction();
+    logger.error('❌ [BACKEND] Error al crear producto con inventario:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      body: req.body,
+    });
     next(error);
   } finally {
     session.endSession();
