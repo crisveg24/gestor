@@ -13,6 +13,9 @@ export interface IProduct extends Document {
   baseName?: string; // Nombre base sin talla (ej: "Zapato Nike Air")
   sizeType?: 'zapatos' | 'bebe' | 'nino' | 'adulto' | 'unica' | null;
   size?: string; // Talla específica (ej: "34", "XL", "6 meses")
+  // Tracking de cambios
+  createdBy?: mongoose.Types.ObjectId;
+  updatedBy?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -76,6 +79,14 @@ const ProductSchema: Schema = new Schema(
       type: String,
       trim: true,
       maxlength: [20, 'La talla no puede exceder 20 caracteres']
+    },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    updatedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User'
     }
   },
   {

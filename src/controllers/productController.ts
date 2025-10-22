@@ -108,13 +108,16 @@ export const createProduct = async (req: AuthRequest, res: Response, next: NextF
       barcode,
       category,
       price,
-      cost
+      cost,
+      createdBy: req.user?._id,
+      updatedBy: req.user?._id
     });
 
     logger.info('Producto creado:', {
       productId: product._id,
       sku: product.sku,
-      createdBy: req.user?._id
+      createdBy: req.user?._id,
+      createdByName: req.user?.name
     });
 
     res.status(201).json({
@@ -203,7 +206,9 @@ export const createProductWithInventory = async (req: AuthRequest, res: Response
       category,
       price,
       cost,
-      isActive: true
+      isActive: true,
+      createdBy: req.user?._id,
+      updatedBy: req.user?._id
     };
     logger.info('📝 [BACKEND] Datos del producto a crear:', productData);
 
@@ -287,12 +292,16 @@ export const updateProduct = async (req: AuthRequest, res: Response, next: NextF
     if (price !== undefined) product.price = price;
     if (cost !== undefined) product.cost = cost;
     if (isActive !== undefined) product.isActive = isActive;
+    
+    // Registrar quién modifica
+    product.updatedBy = req.user?._id as any;
 
     await product.save();
 
     logger.info('Producto actualizado:', {
       productId: product._id,
-      updatedBy: req.user?._id
+      updatedBy: req.user?._id,
+      updatedByName: req.user?.name
     });
 
     res.json({
@@ -444,10 +453,12 @@ export const createProductsWithSizeCurve = async (req: AuthRequest, res: Respons
         cost,
         sizeType,
         size,
-        isActive: true
+        isActive: true,
+        createdBy: req.user?._id,
+        updatedBy: req.user?._id
       }], { session });
 
-      logger.info(`✅ [SIZE-CURVE] Producto creado: ${productName} (${sku}) - ID: ${product[0]._id}`);
+      logger.info(`✅ [SIZE-CURVE] Producto creado: ${productName} (${sku}) - ID: ${product[0]._id} por ${req.user?.name}`);
       createdProducts.push(product[0]);
 
       // Si se proporcionó tienda, crear inventario
