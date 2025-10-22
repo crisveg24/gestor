@@ -188,6 +188,56 @@ export const getSaleById = async (req: AuthRequest, res: Response, next: NextFun
   }
 };
 
+// @desc    Actualizar venta
+// @route   PUT /api/sales/:id
+// @access  Private/Admin/Manager
+export const updateSale = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { notes, paymentMethod, discount } = req.body;
+
+    logger.info('📝 [SALES] Actualizando venta:', { id, notes, paymentMethod, discount });
+
+    const sale = await Sale.findById(id);
+
+    if (!sale) {
+      throw new AppError('Venta no encontrada', 404);
+    }
+
+    // Solo se pueden editar ventas completadas
+    if (sale.status !== SaleStatus.COMPLETED) {
+      throw new AppError('Solo se pueden editar ventas completadas', 400);
+    }
+
+    // Validar permisos de tienda
+    if (req.user?.role !== 'admin' && sale.store.toString() !== req.user?.store?._id?.toString()) {
+      throw new AppError('No tienes permiso para editar ventas de otras tiendas', 403);
+    }
+
+    // Actualizar campos permitidos
+    if (notes !== undefined) sale.notes = notes;
+    if (paymentMethod !== undefined) sale.paymentMethod = paymentMethod;
+    if (discount !== undefined) {
+      sale.discount = discount;
+      // Recalcular total final
+      sale.finalTotal = sale.total + sale.tax - sale.discount;
+    }
+
+    await sale.save();
+
+    logger.info('✅ [SALES] Venta actualizada:', { saleId: id });
+
+    res.json({
+      success: true,
+      data: sale,
+      message: 'Venta actualizada exitosamente'
+    });
+  } catch (error) {
+    logger.error('❌ [SALES] Error al actualizar venta:', error);
+    next(error);
+  }
+};
+
 // @desc    Cancelar venta
 // @route   PUT /api/sales/:id/cancel
 // @access  Private/Admin
@@ -353,6 +403,12 @@ export const createSaleValidation = [
   body('items.*.unitPrice').isFloat({ min: 0 }).withMessage('El precio unitario debe ser positivo'),
   body('paymentMethod').isIn(['efectivo', 'nequi', 'daviplata', 'llave_bancolombia', 'tarjeta', 'transferencia']).withMessage('Método de pago inválido'),
   body('tax').optional().isFloat({ min: 0 }).withMessage('El impuesto debe ser positivo'),
+  body('discount').optional().isFloat({ min: 0 }).withMessage('El descuento debe ser positivo')
+];
+
+export const updateSaleValidation = [
+  body('notes').optional().isString().isLength({ max: 500 }).withMessage('Las notas no pueden exceder 500 caracteres'),
+  body('paymentMethod').optional().isIn(['efectivo', 'nequi', 'daviplata', 'llave_bancolombia', 'tarjeta', 'transferencia']).withMessage('Método de pago inválido'),
   body('discount').optional().isFloat({ min: 0 }).withMessage('El descuento debe ser positivo')
 ];
 

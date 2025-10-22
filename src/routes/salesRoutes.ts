@@ -3,10 +3,12 @@ import {
   createSale,
   getStoreSales,
   getSaleById,
+  updateSale,
   cancelSale,
   getSalesStats,
   getDailyCut,
   createSaleValidation,
+  updateSaleValidation,
   cancelSaleValidation
 } from '../controllers/salesController';
 import { protect, authorize, checkStoreAccess, checkPermission } from '../middleware/auth';
@@ -31,6 +33,9 @@ router.get('/:storeId/stats', checkStoreAccess, checkPermission('canViewReports'
 
 // Obtener venta específica
 router.get('/detail/:id', getSaleById);
+
+// Actualizar venta (solo admins)
+router.put('/:id', authorize(UserRole.ADMIN), updateSaleValidation, validate, updateSale);
 
 // Cancelar venta (solo admins)
 router.put('/:id/cancel', authorize(UserRole.ADMIN), cancelSaleValidation, validate, cancelSale);
