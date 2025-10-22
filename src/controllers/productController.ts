@@ -447,6 +447,7 @@ export const createProductsWithSizeCurve = async (req: AuthRequest, res: Respons
         isActive: true
       }], { session });
 
+      logger.info(`✅ [SIZE-CURVE] Producto creado: ${productName} (${sku}) - ID: ${product[0]._id}`);
       createdProducts.push(product[0]);
 
       // Si se proporcionó tienda, crear inventario
@@ -461,7 +462,10 @@ export const createProductsWithSizeCurve = async (req: AuthRequest, res: Respons
           updatedBy: req.user?._id
         }], { session });
 
+        logger.info(`📦 [SIZE-CURVE] Inventario creado para producto ${product[0]._id} - Cantidad: ${quantityPerSize}`);
         createdInventories.push(inventory[0]);
+      } else {
+        logger.info(`⚠️ [SIZE-CURVE] No se creó inventario para ${productName} (sin tienda o cantidad)`);
       }
     }
 
