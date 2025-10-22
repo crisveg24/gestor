@@ -24,6 +24,8 @@ export interface ISale extends Document {
   status: SaleStatus;
   soldBy: mongoose.Types.ObjectId;
   notes?: string;
+  modifiedBy?: mongoose.Types.ObjectId;
+  modifiedAt?: Date;
   cancelledBy?: mongoose.Types.ObjectId;
   cancelledAt?: Date;
   cancellationReason?: string;
@@ -99,6 +101,13 @@ const SaleSchema: Schema = new Schema(
     notes: {
       type: String,
       maxlength: [500, 'Las notas no pueden exceder 500 caracteres']
+    },
+    modifiedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    modifiedAt: {
+      type: Date
     },
     cancelledBy: {
       type: Schema.Types.ObjectId,

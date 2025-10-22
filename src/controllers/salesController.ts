@@ -223,9 +223,17 @@ export const updateSale = async (req: AuthRequest, res: Response, next: NextFunc
       sale.finalTotal = sale.total + sale.tax - sale.discount;
     }
 
+    // Registrar quién modificó
+    sale.modifiedBy = req.user?._id as any;
+    sale.modifiedAt = new Date();
+
     await sale.save();
 
-    logger.info('✅ [SALES] Venta actualizada:', { saleId: id });
+    logger.info('✅ [SALES] Venta actualizada:', { 
+      saleId: id,
+      modifiedBy: req.user?._id,
+      modifiedByName: req.user?.name 
+    });
 
     res.json({
       success: true,
