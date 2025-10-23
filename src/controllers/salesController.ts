@@ -66,12 +66,20 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
       });
     }
 
+    // Calcular totales
+    const total = saleItems.reduce((sum, item) => sum + item.subtotal, 0);
+    const finalDiscount = discount || 0;
+    const finalTax = tax || 0;
+    const finalTotal = total + finalTax - finalDiscount;
+
     // Crear venta
     const sale = await Sale.create([{
       store,
       items: saleItems,
-      tax: tax || 0,
-      discount: discount || 0,
+      total,
+      tax: finalTax,
+      discount: finalDiscount,
+      finalTotal,
       paymentMethod,
       soldBy: req.user?._id as any,
       notes
