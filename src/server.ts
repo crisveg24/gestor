@@ -23,14 +23,7 @@ app.set('trust proxy', 1);
 
 // Middlewares de seguridad
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
-  },
+  contentSecurityPolicy: false, // Deshabilitado para permitir CSP del frontend
   crossOriginEmbedderPolicy: false,
 }));
 
@@ -98,6 +91,7 @@ import productRoutes from './routes/productRoutes';
 import inventoryRoutes from './routes/inventoryRoutes';
 import salesRoutes from './routes/salesRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
+import reportRoutes from './routes/reportRoutes';
 import seedRoutes from './routes/seed.routes';
 
 app.use('/api/auth', authRoutes);
@@ -107,6 +101,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/reports', reportRoutes);
 app.use('/api/seed', seedRoutes);
 
 // Ruta de health check
@@ -131,7 +126,8 @@ app.get('/', (_req: Request, res: Response) => {
       products: '/api/products',
       inventory: '/api/inventory',
       sales: '/api/sales',
-      dashboard: '/api/dashboard'
+      dashboard: '/api/dashboard',
+      reports: '/api/reports'
     }
   });
 });
