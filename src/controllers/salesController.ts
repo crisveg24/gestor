@@ -41,9 +41,16 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
       }
     }
 
-    // Obtener todos los productos del inventario en una sola query
-    const productIds = items.map((item: any) => item.product);
-    console.log('🔍 [BACKEND] Product IDs:', productIds);
+    // Separar items normales de ñapas (regalos gratuitos)
+    const paidItems = items.filter((item: any) => item.unitPrice > 0);
+    const freebieItems = items.filter((item: any) => item.unitPrice === 0);
+    
+    console.log('🔍 [BACKEND] Items pagados:', paidItems.length);
+    console.log('🔍 [BACKEND] Ñapas (gratis):', freebieItems.length);
+
+    // Obtener inventario solo para productos pagados
+    const productIds = paidItems.map((item: any) => item.product);
+    console.log('🔍 [BACKEND] Product IDs (solo pagados):', productIds);
     const inventoryItems = await Inventory.find({
       store,
       product: { $in: productIds }
@@ -56,12 +63,12 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
       inventoryMap.set(inv.product.toString(), inv);
     });
 
-    // Validar y actualizar inventario
+    // Validar y actualizar inventario (solo productos pagados)
     const saleItems = [];
     const bulkOps = [];
     
-    console.log('🔍 [BACKEND] Procesando items...');
-    for (const item of items) {
+    console.log('🔍 [BACKEND] Procesando items pagados...');
+    for (const item of paidItems) {
       console.log('🔍 [BACKEND] Item:', item);
       const inventoryItem = inventoryMap.get(item.product);
       console.log('🔍 [BACKEND] Inventory item:', inventoryItem ? 'Found' : 'NOT FOUND');
@@ -98,6 +105,18 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         subtotal: item.quantity * item.unitPrice
+      });
+    }
+
+    // Agregar ñapas sin validar inventario
+    console.log('🔍 [BACKEND] Agregando ñapas...');
+    for (const freebie of freebieItems) {
+      console.log('🎁 [BACKEND] Ñapa:', freebie);
+      saleItems.push({
+        product: freebie.product,
+        quantity: freebie.quantity,
+        unitPrice: 0,
+        subtotal: 0
       });
     }
 
