@@ -17,27 +17,38 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
   session.startTransaction();
 
   try {
+    console.log('🔍 [BACKEND] Datos recibidos:', JSON.stringify(req.body, null, 2));
     const { store, items, tax, discount, paymentMethod, notes } = req.body;
+
+    console.log('🔍 [BACKEND] Store ID:', store);
+    console.log('🔍 [BACKEND] Items:', items?.length || 0);
+    console.log('🔍 [BACKEND] PaymentMethod:', paymentMethod);
 
     // Verificar que la tienda existe
     const storeExists = await Store.findById(store);
+    console.log('🔍 [BACKEND] Store exists:', !!storeExists);
     if (!storeExists) {
       throw new AppError('Tienda no encontrada', 404);
     }
 
     // Verificar acceso a la tienda
+    console.log('🔍 [BACKEND] User role:', req.user?.role);
+    console.log('🔍 [BACKEND] User store:', req.user?.store?.toString());
     if (req.user?.role !== UserRole.ADMIN) {
       if (store !== req.user?.store?.toString()) {
+        console.error('❌ [BACKEND] Sin acceso a la tienda');
         throw new AppError('No tiene acceso a esta tienda', 403);
       }
     }
 
     // Obtener todos los productos del inventario en una sola query
     const productIds = items.map((item: any) => item.product);
+    console.log('🔍 [BACKEND] Product IDs:', productIds);
     const inventoryItems = await Inventory.find({
       store,
       product: { $in: productIds }
     }).session(session);
+    console.log('🔍 [BACKEND] Inventory items found:', inventoryItems.length);
 
     // Crear un mapa para acceso rápido
     const inventoryMap = new Map();
@@ -49,15 +60,21 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
     const saleItems = [];
     const bulkOps = [];
     
+    console.log('🔍 [BACKEND] Procesando items...');
     for (const item of items) {
+      console.log('🔍 [BACKEND] Item:', item);
       const inventoryItem = inventoryMap.get(item.product);
+      console.log('🔍 [BACKEND] Inventory item:', inventoryItem ? 'Found' : 'NOT FOUND');
 
       if (!inventoryItem) {
+        console.error('❌ [BACKEND] Producto no en inventario:', item.product);
         await session.abortTransaction();
         throw new AppError(`Producto no encontrado en el inventario: ${item.product}`, 404);
       }
 
+      console.log('🔍 [BACKEND] Stock disponible:', inventoryItem.quantity, 'Requerido:', item.quantity);
       if (inventoryItem.quantity < item.quantity) {
+        console.error('❌ [BACKEND] Stock insuficiente');
         await session.abortTransaction();
         throw new AppError(
           `Stock insuficiente para un producto. Disponible: ${inventoryItem.quantity}`,
@@ -85,8 +102,10 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
     }
 
     // Ejecutar todas las actualizaciones de inventario en una sola operación
+    console.log('🔍 [BACKEND] Bulk operations:', bulkOps.length);
     if (bulkOps.length > 0) {
       await Inventory.bulkWrite(bulkOps, { session });
+      console.log('✅ [BACKEND] Inventario actualizado');
     }
 
     // Calcular totales
@@ -95,7 +114,10 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
     const finalTax = tax || 0;
     const finalTotal = total + finalTax - finalDiscount;
 
+    console.log('🔍 [BACKEND] Totales:', { total, finalDiscount, finalTax, finalTotal });
+
     // Crear venta
+    console.log('🔍 [BACKEND] Creando venta...');
     const sale = await Sale.create([{
       store,
       items: saleItems,
@@ -108,7 +130,9 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
       notes
     }], { session });
 
+    console.log('✅ [BACKEND] Venta creada:', sale[0]._id);
     await session.commitTransaction();
+    console.log('✅ [BACKEND] Transacción confirmada');
 
     // Log sin hacer populate innecesario
     logger.info('Venta creada:', {
@@ -119,11 +143,13 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
     });
 
     // Responder inmediatamente sin populate para mayor velocidad
+    console.log('✅ [BACKEND] Enviando respuesta exitosa');
     res.status(201).json({
       success: true,
       data: sale[0]
     });
   } catch (error) {
+    console.error('❌ [BACKEND] Error en createSale:', error);
     await session.abortTransaction();
     next(error);
   } finally {
