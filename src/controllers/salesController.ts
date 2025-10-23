@@ -32,13 +32,25 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
       }
     }
 
-    // Validar y actualizar inventario para cada item
+    // Obtener todos los productos del inventario en una sola query
+    const productIds = items.map((item: any) => item.product);
+    const inventoryItems = await Inventory.find({
+      store,
+      product: { $in: productIds }
+    }).session(session);
+
+    // Crear un mapa para acceso rápido
+    const inventoryMap = new Map();
+    inventoryItems.forEach(inv => {
+      inventoryMap.set(inv.product.toString(), inv);
+    });
+
+    // Validar y actualizar inventario
     const saleItems = [];
+    const bulkOps = [];
+    
     for (const item of items) {
-      const inventoryItem = await Inventory.findOne({
-        store,
-        product: item.product
-      }).populate('product').session(session);
+      const inventoryItem = inventoryMap.get(item.product);
 
       if (!inventoryItem) {
         await session.abortTransaction();
@@ -48,15 +60,21 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
       if (inventoryItem.quantity < item.quantity) {
         await session.abortTransaction();
         throw new AppError(
-          `Stock insuficiente para el producto: ${(inventoryItem.product as any).name}. Disponible: ${inventoryItem.quantity}`,
+          `Stock insuficiente para un producto. Disponible: ${inventoryItem.quantity}`,
           400
         );
       }
 
-      // Actualizar inventario
-      inventoryItem.quantity -= item.quantity;
-      inventoryItem.updatedBy = req.user?._id as any;
-      await inventoryItem.save({ session });
+      // Preparar actualización bulk
+      bulkOps.push({
+        updateOne: {
+          filter: { _id: inventoryItem._id },
+          update: { 
+            $inc: { quantity: -item.quantity },
+            $set: { updatedBy: req.user?._id }
+          }
+        }
+      });
 
       saleItems.push({
         product: item.product,
@@ -64,6 +82,11 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
         unitPrice: item.unitPrice,
         subtotal: item.quantity * item.unitPrice
       });
+    }
+
+    // Ejecutar todas las actualizaciones de inventario en una sola operación
+    if (bulkOps.length > 0) {
+      await Inventory.bulkWrite(bulkOps, { session });
     }
 
     // Calcular totales
@@ -87,8 +110,7 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
 
     await session.commitTransaction();
 
-    await sale[0].populate('store soldBy items.product');
-
+    // Log sin hacer populate innecesario
     logger.info('Venta creada:', {
       saleId: sale[0]._id,
       store,
@@ -96,6 +118,7 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
       soldBy: req.user?._id
     });
 
+    // Responder inmediatamente sin populate para mayor velocidad
     res.status(201).json({
       success: true,
       data: sale[0]
