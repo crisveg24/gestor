@@ -98,7 +98,6 @@ import productRoutes from './routes/productRoutes';
 import inventoryRoutes from './routes/inventoryRoutes';
 import salesRoutes from './routes/salesRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
-import reportsRoutes from './routes/reportsRoutes';
 import seedRoutes from './routes/seed.routes';
 
 app.use('/api/auth', authRoutes);
@@ -108,7 +107,6 @@ app.use('/api/products', productRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/reports', reportsRoutes);
 app.use('/api/seed', seedRoutes);
 
 // Ruta de health check
@@ -125,7 +123,7 @@ app.get('/', (_req: Request, res: Response) => {
   res.json({
     success: true,
     message: 'API de Gestor de Tiendas',
-    version: '1.0.0',
+    version: '1.1.0',
     endpoints: {
       auth: '/api/auth',
       stores: '/api/stores',
