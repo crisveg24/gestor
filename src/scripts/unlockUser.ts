@@ -1,10 +1,16 @@
 import dotenv from 'dotenv';
+import path from 'path';
 import User from '../models/User';
 import connectDB from '../config/database';
 import logger from '../utils/logger';
 
 // Cargar variables de entorno
-dotenv.config();
+// Si NODE_ENV=production, cargar .env.production, sino .env
+const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env';
+dotenv.config({ path: path.resolve(process.cwd(), envFile) });
+
+console.log(`📝 Usando archivo de configuración: ${envFile}`);
+console.log(`📝 MongoDB URI: ${process.env.MONGODB_URI?.substring(0, 30)}...`);
 
 async function unlockUser(email: string) {
   try {
