@@ -205,6 +205,13 @@ export const getAllSales = async (req: AuthRequest, res: Response, next: NextFun
       query.paymentMethod = paymentMethod;
     }
 
+    // Búsqueda por texto (número de venta o nombre del vendedor)
+    if (search) {
+      query.$or = [
+        { saleNumber: { $regex: search, $options: 'i' } }
+      ];
+    }
+
     if (dateFrom || dateTo) {
       query.createdAt = {};
       if (dateFrom) query.createdAt.$gte = new Date(dateFrom as string);

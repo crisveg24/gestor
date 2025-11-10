@@ -5,7 +5,9 @@ import {
   createSupplier,
   updateSupplier,
   deleteSupplier,
-  getSupplierCategories
+  getSupplierCategories,
+  toggleSupplierStatus,
+  getSupplierPurchaseOrders
 } from '../controllers/supplierController';
 import { protect, authorize } from '../middleware/auth';
 import { UserRole } from '../models/User';
@@ -47,9 +49,13 @@ router.get('/', getSuppliers);
 // GET /api/suppliers/:id
 router.get('/:id', getSupplierById);
 
+// GET /api/suppliers/:id/purchase-orders - debe ir ANTES de rutas de admin
+router.get('/:id/purchase-orders', getSupplierPurchaseOrders);
+
 // Rutas solo para administradores
 router.post('/', authorize(UserRole.ADMIN), createSupplierValidation, createSupplier);
 router.put('/:id', authorize(UserRole.ADMIN), updateSupplierValidation, updateSupplier);
+router.put('/:id/toggle-status', authorize(UserRole.ADMIN), toggleSupplierStatus);
 router.delete('/:id', authorize(UserRole.ADMIN), deleteSupplier);
 
 export default router;

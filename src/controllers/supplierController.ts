@@ -294,3 +294,112 @@ export const getSupplierCategories = async (_req: AuthRequest, res: Response): P
     });
   }
 };
+
+// @desc    Cambiar estado activo/inactivo de un proveedor
+// @route   PUT /api/suppliers/:id/toggle-status
+// @access  Private (Admin)
+export const toggleSupplierStatus = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const supplier = await Supplier.findById(req.params.id);
+    
+    if (!supplier) {
+      res.status(404).json({
+        success: false,
+        message: 'Proveedor no encontrado'
+      });
+      return;
+    }
+    
+    // Cambiar el estado
+    supplier.isActive = !supplier.isActive;
+    supplier.updatedBy = req.user!._id as mongoose.Types.ObjectId;
+    await supplier.save();
+    
+    logger.info(`Estado de proveedor cambiado: ${supplier.name} - Activo: ${supplier.isActive} por ${req.user!.email}`);
+    
+    res.json({
+      success: true,
+      data: supplier,
+      message: `Proveedor ${supplier.isActive ? 'activado' : 'desactivado'} exitosamente`
+    });
+  } catch (error: any) {
+    logger.error('Error al cambiar estado del proveedor:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al cambiar estado del proveedor'
+    });
+  }
+};
+
+// @desc    Obtener órdenes de compra de un proveedor
+// @route   GET /api/suppliers/:id/purchase-orders
+// @access  Private
+export const getSupplierPurchaseOrders = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const supplier = await Supplier.findById(req.params.id);
+    
+    if (!supplier) {
+      res.status(404).json({
+        success: false,
+        message: 'Proveedor no encontrado'
+      });
+      return;
+    }
+    
+    // Importar el modelo de PurchaseOrder
+    const PurchaseOrder = (await import('../models/PurchaseOrder')).default;
+    
+    const { status, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
+    
+    const query: any = { supplier: req.params.id };
+    
+    // Filtro por estado
+    if (status) {
+      query.status = status;
+    }
+    
+    // Filtro por rango de fechas
+    if (dateFrom || dateTo) {
+      query.orderDate = {};
+      if (dateFrom) query.orderDate.$gte = new Date(dateFrom as string);
+      if (dateTo) query.orderDate.$lte = new Date(dateTo as string);
+    }
+    
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+    
+    const [purchaseOrders, total] = await Promise.all([
+      PurchaseOrder.find(query)
+        .sort({ orderDate: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .populate('store', 'name')
+        .populate('createdBy', 'name email'),
+      PurchaseOrder.countDocuments(query)
+    ]);
+    
+    res.json({
+      success: true,
+      data: {
+        purchaseOrders,
+        supplier: {
+          _id: supplier._id,
+          name: supplier.name
+        },
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum)
+        }
+      }
+    });
+  } catch (error: any) {
+    logger.error('Error al obtener órdenes de compra del proveedor:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener órdenes de compra'
+    });
+  }
+};
