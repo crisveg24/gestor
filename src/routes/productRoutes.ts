@@ -2,6 +2,7 @@ import express from 'express';
 import {
   getProducts,
   getProductById,
+  getProductByBarcode,
   createProduct,
   createProductWithInventory,
   createProductsWithSizeCurve,
@@ -32,6 +33,10 @@ router.post('/size-curve', createSizeCurveValidation, validate, createProductsWi
 // Ruta para crear producto con inventario (todos los usuarios autenticados)
 // IMPORTANTE: Esta ruta debe ir ANTES de /:id para que no se confunda
 router.post('/with-inventory', createProductWithInventoryValidation, validate, createProductWithInventory);
+
+// Ruta para buscar producto por código de barras
+// IMPORTANTE: Esta ruta debe ir ANTES de /:id para que no se confunda
+router.get('/by-barcode/:barcode', getProductByBarcode);
 
 // Rutas solo para administradores
 router.post('/', authorize(UserRole.ADMIN), createProductValidation, validate, createProduct);

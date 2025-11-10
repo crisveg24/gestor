@@ -88,6 +88,47 @@ export const getProductById = async (req: AuthRequest, res: Response, next: Next
   }
 };
 
+// @desc    Buscar producto por código de barras
+// @route   GET /api/products/by-barcode/:barcode
+// @access  Private
+export const getProductByBarcode = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { barcode } = req.params;
+    const userId = req.user?._id;
+
+    // Buscar el producto por barcode
+    const product = await Product.findOne({ barcode: barcode.trim() });
+
+    if (!product) {
+      throw new AppError('Producto no encontrado', 404);
+    }
+
+    // Obtener inventario del producto para la tienda del usuario
+    const Inventory = require('../models/inventoryModel').default;
+    const inventory = await Inventory.findOne({
+      product: product._id,
+      store: userId
+    });
+
+    // Preparar respuesta con información de inventario
+    const response = {
+      ...product.toObject(),
+      inventory: inventory ? {
+        stock: inventory.stock,
+        minStock: inventory.minStock,
+        location: inventory.location
+      } : null
+    };
+
+    res.json({
+      success: true,
+      data: response
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Crear producto
 // @route   POST /api/products
 // @access  Private/Admin
