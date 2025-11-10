@@ -27,31 +27,43 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// CORS
+// CORS - Configuración mejorada para producción
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
   'https://gestor-fronted.vercel.app',
+  'https://gestor-frontend.vercel.app', // Variante del dominio Vercel
   'https://vrmajo.xyz',
   'https://www.vrmajo.xyz'
 ];
 
 const corsOptions = {
   origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    // Permitir requests sin origin (como mobile apps o curl)
+    // Permitir requests sin origin (como mobile apps o curl requests)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+    // En desarrollo, permitir todos los orígenes
+    if (process.env.NODE_ENV === 'development') {
+      logger.info(`✅ [CORS] Permitido en desarrollo: ${origin}`);
+      return callback(null, true);
+    }
+    
+    // En producción, verificar lista de orígenes permitidos
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      logger.info(`✅ [CORS] Origin permitido: ${origin}`);
       callback(null, true);
     } else {
       logger.warn(`❌ [CORS] Origin bloqueado: ${origin}`);
+      logger.warn(`❌ [CORS] Orígenes permitidos: ${allowedOrigins.join(', ')}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  optionsSuccessStatus: 200
+  exposedHeaders: ['Authorization'],
+  optionsSuccessStatus: 200,
+  preflightContinue: false
 };
 app.use(cors(corsOptions));
 
