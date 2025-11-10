@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "test": "jest",
     "lint": "eslint . --ext .ts",
-    "seed": "ts-node src/scripts/seed.ts"
+    "seed": "ts-node src/scripts/seed.ts",
+    "unlock-user": "ts-node src/scripts/unlockUser.ts"
   },
   "keywords": ["inventory", "sales", "management"],
   "author": "",
