@@ -4,6 +4,8 @@ import bcrypt from 'bcryptjs';
 import Store from '../models/Store';
 import User, { UserRole } from '../models/User';
 import Product from '../models/Product';
+import Supplier from '../models/Supplier';
+import PurchaseOrder, { PurchaseOrderStatus } from '../models/PurchaseOrder';
 import logger from '../utils/logger';
 import path from 'path';
 
@@ -34,6 +36,8 @@ const seedData = async () => {
     await Store.deleteMany({});
     await User.deleteMany({});
     await Product.deleteMany({});
+    await Supplier.deleteMany({});
+    await PurchaseOrder.deleteMany({});
 
     logger.info('Datos antiguos eliminados');
 
@@ -221,6 +225,142 @@ const seedData = async () => {
     ]);
 
     logger.info(`${products.length} productos creados`);
+
+    // Crear proveedores
+    const adminUser = await User.findOne({ role: UserRole.ADMIN });
+    
+    const suppliers = await Supplier.insertMany([
+      {
+        name: 'TechDistribuciones S.A.',
+        contactName: 'Carlos Mendoza',
+        email: 'ventas@techdist.com',
+        phone: '+57 300 1234567',
+        address: 'Carrera 50 #45-30',
+        city: 'Bogotá',
+        country: 'Colombia',
+        taxId: '900123456-7',
+        categories: ['Electrónica', 'Computadoras', 'Accesorios'],
+        paymentTerms: '30 días',
+        website: 'www.techdist.com',
+        rating: 5,
+        isActive: true,
+        createdBy: adminUser!._id,
+        updatedBy: adminUser!._id
+      },
+      {
+        name: 'ElectroMax Ltda',
+        contactName: 'María González',
+        email: 'pedidos@electromax.com',
+        phone: '+57 310 7654321',
+        address: 'Avenida 68 #120-45',
+        city: 'Medellín',
+        country: 'Colombia',
+        taxId: '800987654-3',
+        categories: ['Electrónica', 'Audio', 'Celulares'],
+        paymentTerms: 'Contado',
+        rating: 4,
+        isActive: true,
+        createdBy: adminUser!._id,
+        updatedBy: adminUser!._id
+      },
+      {
+        name: 'CompuPartes Colombia',
+        contactName: 'Jorge Ramírez',
+        email: 'info@compupartes.com',
+        phone: '+57 320 5551234',
+        address: 'Calle 100 #15-20',
+        city: 'Cali',
+        country: 'Colombia',
+        taxId: '900555777-1',
+        categories: ['Computadoras', 'Redes', 'Accesorios'],
+        paymentTerms: '15 días',
+        rating: 4,
+        isActive: true,
+        createdBy: adminUser!._id,
+        updatedBy: adminUser!._id
+      }
+    ]);
+
+    logger.info(`${suppliers.length} proveedores creados`);
+
+    // Crear órdenes de compra de ejemplo
+    const purchaseOrders = await PurchaseOrder.insertMany([
+      {
+        supplier: suppliers[0]._id,
+        store: stores[0]._id,
+        items: [
+          {
+            product: products[0]._id, // Laptop
+            quantityOrdered: 10,
+            quantityReceived: 10,
+            unitCost: 699.99
+          },
+          {
+            product: products[1]._id, // Mouse
+            quantityOrdered: 50,
+            quantityReceived: 50,
+            unitCost: 15.99
+          }
+        ],
+        tax: 0,
+        shippingCost: 50,
+        expectedDeliveryDate: new Date('2025-11-15'),
+        receivedDate: new Date('2025-11-14'),
+        status: PurchaseOrderStatus.RECEIVED,
+        paymentStatus: 'paid',
+        createdBy: adminUser!._id,
+        updatedBy: adminUser!._id,
+        receivedBy: adminUser!._id
+      },
+      {
+        supplier: suppliers[1]._id,
+        store: stores[1]._id,
+        items: [
+          {
+            product: products[3]._id, // Smartphone
+            quantityOrdered: 20,
+            quantityReceived: 0,
+            unitCost: 399.99
+          }
+        ],
+        tax: 0,
+        shippingCost: 30,
+        expectedDeliveryDate: new Date('2025-11-20'),
+        status: PurchaseOrderStatus.PENDING,
+        paymentStatus: 'pending',
+        createdBy: adminUser!._id,
+        updatedBy: adminUser!._id
+      },
+      {
+        supplier: suppliers[2]._id,
+        store: stores[0]._id,
+        items: [
+          {
+            product: products[5]._id, // Webcam
+            quantityOrdered: 15,
+            quantityReceived: 10,
+            unitCost: 49.99
+          },
+          {
+            product: products[8]._id, // Cable HDMI
+            quantityOrdered: 100,
+            quantityReceived: 100,
+            unitCost: 12.99
+          }
+        ],
+        tax: 0,
+        shippingCost: 25,
+        expectedDeliveryDate: new Date('2025-11-18'),
+        receivedDate: new Date('2025-11-17'),
+        status: PurchaseOrderStatus.PARTIAL,
+        paymentStatus: 'partial',
+        createdBy: adminUser!._id,
+        updatedBy: adminUser!._id,
+        receivedBy: adminUser!._id
+      }
+    ]);
+
+    logger.info(`${purchaseOrders.length} órdenes de compra creadas`);
 
     logger.info('\n=== CREDENCIALES DE ACCESO ===');
     logger.info('\nAdministrador:');

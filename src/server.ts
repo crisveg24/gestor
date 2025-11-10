@@ -93,6 +93,8 @@ import salesRoutes from './routes/salesRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
 import reportRoutes from './routes/reportRoutes';
 import seedRoutes from './routes/seed.routes';
+import supplierRoutes from './routes/supplierRoutes';
+import purchaseOrderRoutes from './routes/purchaseOrderRoutes';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/stores', storeRoutes);
@@ -103,6 +105,8 @@ app.use('/api/sales', salesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/seed', seedRoutes);
+app.use('/api/suppliers', supplierRoutes);
+app.use('/api/purchase-orders', purchaseOrderRoutes);
 
 // Ruta de health check
 app.get('/health', (_req: Request, res: Response) => {
@@ -118,7 +122,7 @@ app.get('/', (_req: Request, res: Response) => {
   res.json({
     success: true,
     message: 'API de Gestor de Tiendas',
-    version: '1.1.0',
+    version: '1.1.5',
     endpoints: {
       auth: '/api/auth',
       stores: '/api/stores',
@@ -127,7 +131,9 @@ app.get('/', (_req: Request, res: Response) => {
       inventory: '/api/inventory',
       sales: '/api/sales',
       dashboard: '/api/dashboard',
-      reports: '/api/reports'
+      reports: '/api/reports',
+      suppliers: '/api/suppliers',
+      purchaseOrders: '/api/purchase-orders'
     }
   });
 });
