@@ -176,6 +176,74 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
   }
 };
 
+// @desc    Obtener todas las ventas (con filtros opcionales)
+// @route   GET /api/sales
+// @access  Private
+export const getAllSales = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { search, dateFrom, dateTo, store, paymentMethod, status, minAmount, maxAmount, page = 1, limit = 50 } = req.query;
+
+    const query: any = {};
+
+    // Si no es admin, solo puede ver ventas de su tienda
+    if (req.user?.role !== UserRole.ADMIN) {
+      if (!req.user?.store) {
+        throw new AppError('No tienes una tienda asignada', 403);
+      }
+      query.store = req.user.store;
+    } else if (store) {
+      // Si es admin y especifica tienda, filtrar por esa tienda
+      query.store = store;
+    }
+
+    // Filtros adicionales
+    if (status) {
+      query.status = status;
+    }
+
+    if (paymentMethod) {
+      query.paymentMethod = paymentMethod;
+    }
+
+    if (dateFrom || dateTo) {
+      query.createdAt = {};
+      if (dateFrom) query.createdAt.$gte = new Date(dateFrom as string);
+      if (dateTo) query.createdAt.$lte = new Date(dateTo as string);
+    }
+
+    if (minAmount || maxAmount) {
+      query.finalTotal = {};
+      if (minAmount) query.finalTotal.$gte = parseFloat(minAmount as string);
+      if (maxAmount) query.finalTotal.$lte = parseFloat(maxAmount as string);
+    }
+
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    const sales = await Sale.find(query)
+      .populate('store', 'name')
+      .populate('soldBy', 'name email')
+      .populate('items.product', 'name sku price')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    const total = await Sale.countDocuments(query);
+
+    res.json({
+      success: true,
+      count: sales.length,
+      total,
+      page: pageNum,
+      pages: Math.ceil(total / limitNum),
+      data: { sales }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Obtener ventas de una tienda
 // @route   GET /api/sales/:storeId
 // @access  Private

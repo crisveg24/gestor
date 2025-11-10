@@ -1,6 +1,7 @@
 import express from 'express';
 import {
   createSale,
+  getAllSales,
   getStoreSales,
   getSaleById,
   updateSale,
@@ -19,11 +20,17 @@ const router = express.Router();
 
 router.use(protect);
 
+// Obtener todas las ventas (con filtros)
+router.get('/', getAllSales);
+
 // Crear venta
 router.post('/', checkPermission('canAddSale'), createSaleValidation, validate, createSale);
 
 // Corte de caja diario
 router.get('/daily-cut', getDailyCut);
+
+// Obtener venta específica
+router.get('/detail/:id', getSaleById);
 
 // Obtener ventas de una tienda
 router.get('/:storeId', checkStoreAccess, checkPermission('canViewSales'), getStoreSales);
