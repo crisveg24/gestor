@@ -6,6 +6,8 @@ import {
   updateUser,
   deleteUser,
   resetLoginAttempts,
+  resetPassword,
+  toggleUserActive,
   createUserValidation,
   updateUserValidation
 } from '../controllers/userController';
@@ -24,5 +26,7 @@ router.get('/:id', getUserById);
 router.put('/:id', updateUserValidation, validate, updateUser);
 router.delete('/:id', deleteUser);
 router.post('/:id/reset-attempts', resetLoginAttempts);
+router.patch('/:id/reset-password', resetPassword);
+router.patch('/:id/activate', toggleUserActive);
 
 export default router;

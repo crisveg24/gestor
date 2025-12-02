@@ -5,6 +5,7 @@ import {
   createStore,
   updateStore,
   deleteStore,
+  toggleStoreActive,
   createStoreValidation,
   updateStoreValidation
 } from '../controllers/storeController';
@@ -21,6 +22,7 @@ router.get('/', authorize(UserRole.ADMIN), getStores);
 router.post('/', authorize(UserRole.ADMIN), createStoreValidation, validate, createStore);
 router.put('/:id', authorize(UserRole.ADMIN), updateStoreValidation, validate, updateStore);
 router.delete('/:id', authorize(UserRole.ADMIN), deleteStore);
+router.patch('/:id/toggle', authorize(UserRole.ADMIN), toggleStoreActive);
 
 // Ruta accesible para todos los usuarios autenticados
 router.get('/:id', getStoreById);

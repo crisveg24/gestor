@@ -116,6 +116,38 @@ export const updateStore = async (req: AuthRequest, res: Response, next: NextFun
   }
 };
 
+// @desc    Activar/desactivar tienda
+// @route   PATCH /api/stores/:id/toggle
+// @access  Private/Admin
+export const toggleStoreActive = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+
+    const store = await Store.findById(id);
+
+    if (!store) {
+      throw new AppError('Tienda no encontrada', 404);
+    }
+
+    store.isActive = isActive;
+    await store.save();
+
+    logger.info('Estado de tienda cambiado:', {
+      storeId: id,
+      isActive,
+      changedBy: req.user?._id
+    });
+
+    res.json({
+      success: true,
+      data: store
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Eliminar tienda
 // @route   DELETE /api/stores/:id
 // @access  Private/Admin

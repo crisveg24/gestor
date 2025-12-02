@@ -209,6 +209,73 @@ export const resetLoginAttempts = async (req: AuthRequest, res: Response, next: 
   }
 };
 
+// @desc    Restablecer contraseña de usuario
+// @route   PATCH /api/users/:id/reset-password
+// @access  Private/Admin
+export const resetPassword = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+
+    if (!password || password.length < 8) {
+      throw new AppError('La contraseña debe tener al menos 8 caracteres', 400);
+    }
+
+    const user = await User.findById(id).select('+password');
+
+    if (!user) {
+      throw new AppError('Usuario no encontrado', 404);
+    }
+
+    user.password = password;
+    await user.save();
+
+    logger.info('Contraseña restablecida:', {
+      userId: id,
+      resetBy: req.user?._id
+    });
+
+    res.json({
+      success: true,
+      message: 'Contraseña restablecida exitosamente'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Activar/desactivar usuario
+// @route   PATCH /api/users/:id/activate
+// @access  Private/Admin
+export const toggleUserActive = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+
+    const user = await User.findById(id);
+
+    if (!user) {
+      throw new AppError('Usuario no encontrado', 404);
+    }
+
+    user.isActive = isActive;
+    await user.save();
+
+    logger.info('Estado de usuario cambiado:', {
+      userId: id,
+      isActive,
+      changedBy: req.user?._id
+    });
+
+    res.json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Validaciones
 export const createUserValidation = [
   body('name').trim().notEmpty().withMessage('El nombre es requerido'),
@@ -217,13 +284,13 @@ export const createUserValidation = [
     .isLength({ min: 8 })
     .withMessage('La contraseña debe tener al menos 8 caracteres'),
   body('role').isIn(Object.values(UserRole)).withMessage('Rol inválido'),
-  body('store').optional().isMongoId().withMessage('ID de tienda inválido'),
+  body('store').optional({ values: 'falsy' }).isMongoId().withMessage('ID de tienda inválido'),
 ];
 
 export const updateUserValidation = [
   body('name').optional().trim().notEmpty().withMessage('El nombre no puede estar vacío'),
   body('email').optional().isEmail().withMessage('Email inválido').normalizeEmail(),
   body('role').optional().isIn(Object.values(UserRole)).withMessage('Rol inválido'),
-  body('store').optional().isMongoId().withMessage('ID de tienda inválido'),
+  body('store').optional({ values: 'falsy' }).isMongoId().withMessage('ID de tienda inválido'),
   body('isActive').optional().isBoolean().withMessage('isActive debe ser un booleano')
 ];
