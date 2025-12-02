@@ -226,8 +226,6 @@ export const createProductWithInventory = async (req: AuthRequest, res: Response
 
     logger.info('✅ [BACKEND] Validaciones pasadas correctamente');
 
-    logger.info('✅ [BACKEND] Validaciones pasadas correctamente');
-
     // Verificar que el SKU no exista
     logger.info('🔍 [BACKEND] Verificando SKU único...');
     const existingProduct = await Product.findOne({ sku });

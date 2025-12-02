@@ -22,8 +22,11 @@ export const protect = async (req: AuthRequest, _res: Response, next: NextFuncti
       throw new AppError('No autorizado - Token no proporcionado', 401);
     }
 
-    // Verificar token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as { id: string };
+    // Verificar token - JWT_SECRET es REQUERIDO
+    if (!process.env.JWT_SECRET) {
+      throw new AppError('Error de configuración del servidor', 500);
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET) as { id: string };
 
     // Obtener usuario del token
     const user = await User.findById(decoded.id).select('-password');
@@ -58,88 +61,104 @@ export const protect = async (req: AuthRequest, _res: Response, next: NextFuncti
 // Middleware para verificar roles
 export const authorize = (...roles: UserRole[]) => {
   return (req: AuthRequest, _res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      throw new AppError('No autorizado', 401);
-    }
+    try {
+      if (!req.user) {
+        return next(new AppError('No autorizado', 401));
+      }
 
-    if (!roles.includes(req.user.role)) {
-      logger.warn('Acceso denegado por rol:', {
-        userId: req.user._id,
-        role: req.user.role,
-        requiredRoles: roles,
-        path: req.path
-      });
-      throw new AppError('No tiene permisos para realizar esta acción', 403);
-    }
+      if (!roles.includes(req.user.role)) {
+        logger.warn('Acceso denegado por rol:', {
+          userId: req.user._id,
+          role: req.user.role,
+          requiredRoles: roles,
+          path: req.path
+        });
+        return next(new AppError('No tiene permisos para realizar esta acción', 403));
+      }
 
-    next();
+      next();
+    } catch (error) {
+      next(error);
+    }
   };
 };
 
 // Middleware para verificar permisos específicos
 export const checkPermission = (permission: keyof IUser['permissions']) => {
   return (req: AuthRequest, _res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      throw new AppError('No autorizado', 401);
-    }
+    try {
+      if (!req.user) {
+        return next(new AppError('No autorizado', 401));
+      }
 
-    // Los admins tienen todos los permisos
-    if (req.user.role === UserRole.ADMIN) {
-      return next();
-    }
+      // Los admins tienen todos los permisos
+      if (req.user.role === UserRole.ADMIN) {
+        return next();
+      }
 
-    if (!req.user.permissions[permission]) {
-      logger.warn('Permiso denegado:', {
-        userId: req.user._id,
-        permission,
-        path: req.path
-      });
-      throw new AppError('No tiene permiso para realizar esta acción', 403);
-    }
+      if (!req.user.permissions[permission]) {
+        logger.warn('Permiso denegado:', {
+          userId: req.user._id,
+          permission,
+          path: req.path
+        });
+        return next(new AppError('No tiene permiso para realizar esta acción', 403));
+      }
 
-    next();
+      next();
+    } catch (error) {
+      next(error);
+    }
   };
 };
 
 // Middleware para verificar que el usuario solo acceda a su tienda
 export const checkStoreAccess = (req: AuthRequest, _res: Response, next: NextFunction): void => {
-  if (!req.user) {
-    throw new AppError('No autorizado', 401);
+  try {
+    if (!req.user) {
+      return next(new AppError('No autorizado', 401));
+    }
+
+    // Los admins pueden acceder a cualquier tienda
+    if (req.user.role === UserRole.ADMIN) {
+      return next();
+    }
+
+    const storeId = req.params.storeId || req.body.store;
+
+    if (!storeId) {
+      return next(new AppError('ID de tienda no proporcionado', 400));
+    }
+
+    if (req.user.store?.toString() !== storeId.toString()) {
+      logger.warn('Intento de acceso a tienda no autorizada:', {
+        userId: req.user._id,
+        userStore: req.user.store,
+        requestedStore: storeId
+      });
+      return next(new AppError('No tiene acceso a esta tienda', 403));
+    }
+
+    next();
+  } catch (error) {
+    next(error);
   }
-
-  // Los admins pueden acceder a cualquier tienda
-  if (req.user.role === UserRole.ADMIN) {
-    return next();
-  }
-
-  const storeId = req.params.storeId || req.body.store;
-
-  if (!storeId) {
-    throw new AppError('ID de tienda no proporcionado', 400);
-  }
-
-  if (req.user.store?.toString() !== storeId.toString()) {
-    logger.warn('Intento de acceso a tienda no autorizada:', {
-      userId: req.user._id,
-      userStore: req.user.store,
-      requestedStore: storeId
-    });
-    throw new AppError('No tiene acceso a esta tienda', 403);
-  }
-
-  next();
 };
 
-// Generar JWT token
+// Generar JWT token - JWT_SECRET es REQUERIDO
 export const generateToken = (id: string): string => {
-  const secret = process.env.JWT_SECRET || 'secret';
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET no está configurado');
+  }
   const expiresIn: string = process.env.JWT_EXPIRE || '7d';
-  return jwt.sign({ id }, secret, { expiresIn } as jwt.SignOptions);
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn } as jwt.SignOptions);
 };
 
-// Generar refresh token
+// Generar refresh token - JWT_REFRESH_SECRET es REQUERIDO
 export const generateRefreshToken = (id: string): string => {
-  const secret = process.env.JWT_REFRESH_SECRET || 'refresh-secret';
+  if (!process.env.JWT_REFRESH_SECRET) {
+    throw new Error('JWT_REFRESH_SECRET no está configurado');
+  }
   const expiresIn: string = process.env.JWT_REFRESH_EXPIRE || '30d';
-  return jwt.sign({ id }, secret, { expiresIn } as jwt.SignOptions);
+  return jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, { expiresIn } as jwt.SignOptions);
 };

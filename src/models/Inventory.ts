@@ -68,7 +68,7 @@ InventorySchema.index({ product: 1 });
 // Validación: maxStock debe ser mayor que minStock
 InventorySchema.pre<IInventory>('save', function(next) {
   if (this.maxStock <= this.minStock) {
-    next(new Error('El stock máximo debe ser mayor que el stock mínimo'));
+    return next(new Error('El stock máximo debe ser mayor que el stock mínimo'));
   }
   next();
 });

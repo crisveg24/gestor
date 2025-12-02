@@ -24,7 +24,6 @@ const createSupplierValidation = [
   body('phone').trim().notEmpty().withMessage('El teléfono es requerido'),
   body('categories').optional().isArray().withMessage('Las categorías deben ser un array'),
   body('rating').optional().isInt({ min: 1, max: 5 }).withMessage('La calificación debe ser entre 1 y 5'),
-  validate
 ];
 
 const updateSupplierValidation = [
@@ -34,7 +33,6 @@ const updateSupplierValidation = [
   body('phone').optional().trim().notEmpty().withMessage('El teléfono no puede estar vacío'),
   body('categories').optional().isArray().withMessage('Las categorías deben ser un array'),
   body('rating').optional().isInt({ min: 1, max: 5 }).withMessage('La calificación debe ser entre 1 y 5'),
-  validate
 ];
 
 // Rutas públicas para usuarios autenticados
@@ -53,8 +51,8 @@ router.get('/:id', getSupplierById);
 router.get('/:id/purchase-orders', getSupplierPurchaseOrders);
 
 // Rutas solo para administradores
-router.post('/', authorize(UserRole.ADMIN), createSupplierValidation, createSupplier);
-router.put('/:id', authorize(UserRole.ADMIN), updateSupplierValidation, updateSupplier);
+router.post('/', authorize(UserRole.ADMIN), createSupplierValidation, validate, createSupplier);
+router.put('/:id', authorize(UserRole.ADMIN), updateSupplierValidation, validate, updateSupplier);
 router.put('/:id/toggle-status', authorize(UserRole.ADMIN), toggleSupplierStatus);
 router.delete('/:id', authorize(UserRole.ADMIN), deleteSupplier);
 

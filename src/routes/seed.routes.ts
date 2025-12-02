@@ -3,8 +3,13 @@ import bcrypt from 'bcryptjs';
 import Store from '../models/Store';
 import User, { UserRole } from '../models/User';
 import Product from '../models/Product';
+import { protect, authorize } from '../middleware/auth';
 
 const router = Router();
+
+// ⚠️ TODAS las rutas de seed requieren autenticación de ADMIN
+router.use(protect);
+router.use(authorize(UserRole.ADMIN));
 
 router.post('/execute-seed', async (_req: Request, res: Response): Promise<void> => {
   try {

@@ -134,7 +134,7 @@ app.get('/', (_req: Request, res: Response) => {
   res.json({
     success: true,
     message: 'API de Gestor de Tiendas',
-    version: '1.1.5',
+    version: '1.1.8',
     endpoints: {
       auth: '/api/auth',
       stores: '/api/stores',

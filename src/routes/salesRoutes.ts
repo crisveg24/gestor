@@ -38,8 +38,7 @@ router.get('/:storeId', checkStoreAccess, checkPermission('canViewSales'), getSt
 // Estadísticas de ventas
 router.get('/:storeId/stats', checkStoreAccess, checkPermission('canViewReports'), getSalesStats);
 
-// Obtener venta específica
-router.get('/detail/:id', getSaleById);
+// NOTA: La ruta GET /detail/:id ya está definida arriba (línea 33)
 
 // Actualizar venta (solo admins)
 router.put('/:id', authorize(UserRole.ADMIN), updateSaleValidation, validate, updateSale);
