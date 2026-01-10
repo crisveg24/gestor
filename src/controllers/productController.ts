@@ -88,7 +88,6 @@ export const getProductByBarcode = async (req: AuthRequest, res: Response, next:
     }
 
     // Obtener inventario del producto para la tienda del usuario
-    const Inventory = require('../models/inventoryModel').default;
     const inventory = await Inventory.findOne({
       product: product._id,
       store: userId
@@ -98,9 +97,9 @@ export const getProductByBarcode = async (req: AuthRequest, res: Response, next:
     const response = {
       ...product.toObject(),
       inventory: inventory ? {
-        stock: inventory.stock,
+        quantity: inventory.quantity,
         minStock: inventory.minStock,
-        location: inventory.location
+        maxStock: inventory.maxStock
       } : null
     };
 
