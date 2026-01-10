@@ -1,5 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { body } from 'express-validator';
+import jwt from 'jsonwebtoken';
 import User, { UserRole } from '../models/User';
 import { AuthRequest, generateToken, generateRefreshToken } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
@@ -139,6 +140,59 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
     res.json({
       success: true,
       data: user
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Refrescar tokens
+// @route   POST /api/auth/refresh
+// @access  Public (pero requiere refresh token válido)
+export const refreshTokens = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      throw new AppError('Refresh token es requerido', 400);
+    }
+
+    // Verificar refresh token
+    if (!process.env.JWT_REFRESH_SECRET) {
+      throw new AppError('Error de configuración del servidor', 500);
+    }
+
+    let decoded: { id: string };
+    try {
+      decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET) as { id: string };
+    } catch {
+      logger.warn('Refresh token inválido o expirado');
+      throw new AppError('Refresh token inválido o expirado', 401);
+    }
+
+    // Buscar usuario
+    const user = await User.findById(decoded.id);
+
+    if (!user) {
+      throw new AppError('Usuario no encontrado', 401);
+    }
+
+    if (!user.isActive) {
+      throw new AppError('Cuenta desactivada', 401);
+    }
+
+    // Generar nuevos tokens
+    const newAccessToken = generateToken(String(user._id));
+    const newRefreshToken = generateRefreshToken(String(user._id));
+
+    logger.info('Tokens refrescados exitosamente:', { userId: user._id });
+
+    res.json({
+      success: true,
+      data: {
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken
+      }
     });
   } catch (error) {
     next(error);

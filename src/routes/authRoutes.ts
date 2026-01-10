@@ -4,6 +4,7 @@ import {
   register,
   login,
   getMe,
+  refreshTokens,
   updateProfile,
   changePassword,
   registerValidation,
@@ -33,6 +34,7 @@ const loginRateLimiter = rateLimit({
 
 // Rutas públicas
 router.post('/login', loginRateLimiter, loginValidation, validate, login);
+router.post('/refresh', refreshTokens); // Endpoint para refrescar tokens
 
 // Rutas protegidas
 router.use(protect);
