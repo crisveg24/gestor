@@ -1,9 +1,9 @@
-import { Router, Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
+import { Router, Response } from 'express';
 import Store from '../models/Store';
 import User, { UserRole } from '../models/User';
 import Product from '../models/Product';
-import { protect, authorize } from '../middleware/auth';
+import { protect, authorize, AuthRequest } from '../middleware/auth';
+import logger from '../utils/logger';
 
 const router = Router();
 
@@ -11,16 +11,33 @@ const router = Router();
 router.use(protect);
 router.use(authorize(UserRole.ADMIN));
 
-router.post('/execute-seed', async (_req: Request, res: Response): Promise<void> => {
+// ============================================================================
+// ⚠️ RUTA DE SEED DESHABILITADA EN PRODUCCIÓN POR SEGURIDAD
+// Esta ruta solo está disponible en entorno de desarrollo
+// ============================================================================
+router.post('/execute-seed', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    // Verificar que estemos en producción
-    if (process.env.NODE_ENV !== 'production') {
+    // ⛔ BLOQUEADO EN PRODUCCIÓN - CRÍTICO DE SEGURIDAD
+    if (process.env.NODE_ENV === 'production') {
+      logger.warn(`[SECURITY] Intento de ejecutar seed en producción por usuario: ${req.user?.email}`);
       res.status(403).json({ 
         success: false, 
-        message: 'Este endpoint solo está disponible en producción' 
+        message: 'Este endpoint está deshabilitado en producción por seguridad' 
       });
       return;
     }
+
+    // Solo en desarrollo: requiere confirmación explícita
+    const { confirmDelete } = req.body;
+    if (confirmDelete !== 'CONFIRMO_BORRAR_TODO') {
+      res.status(400).json({
+        success: false,
+        message: 'Debe enviar { confirmDelete: "CONFIRMO_BORRAR_TODO" } para ejecutar el seed'
+      });
+      return;
+    }
+
+    logger.info(`[SEED] Usuario ${req.user?.email} ejecutando seed en desarrollo`);
 
     // Limpiar datos existentes
     await Store.deleteMany({});
@@ -152,7 +169,7 @@ router.post('/execute-seed', async (_req: Request, res: Response): Promise<void>
 
     res.json({
       success: true,
-      message: 'Base de datos sembrada exitosamente',
+      message: 'Base de datos sembrada exitosamente (solo en desarrollo)',
       data: {
         stores: stores.length,
         users: 5,
@@ -160,7 +177,7 @@ router.post('/execute-seed', async (_req: Request, res: Response): Promise<void>
       }
     });
   } catch (error) {
-    console.error('Error en seed:', error);
+    logger.error('Error en seed:', error);
     res.status(500).json({
       success: false,
       message: 'Error al sembrar la base de datos',
@@ -169,61 +186,11 @@ router.post('/execute-seed', async (_req: Request, res: Response): Promise<void>
   }
 });
 
-// Endpoint de debug para verificar usuarios
-router.get('/check-user/:email', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const user = await User.findOne({ email: req.params.email }).select('+password');
-    
-    if (!user) {
-      res.json({ found: false });
-      return;
-    }
-
-    res.json({
-      found: true,
-      email: user.email,
-      role: user.role,
-      isActive: user.isActive,
-      passwordLength: user.password.length,
-      passwordStartsWith: user.password.substring(0, 10)
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Error desconocido'
-    });
-  }
-});
-
-// Endpoint de prueba de login directo
-router.post('/test-login', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email }).select('+password');
-    
-    if (!user) {
-      res.json({ success: false, message: 'Usuario no encontrado' });
-      return;
-    }
-
-    const directCompare = await bcrypt.compare(password, user.password);
-    const methodCompare = await user.comparePassword(password);
-
-    res.json({
-      success: true,
-      email: user.email,
-      passwordProvided: password,
-      passwordLength: user.password.length,
-      directBcryptCompare: directCompare,
-      modelMethodCompare: methodCompare,
-      passwordHash: user.password.substring(0, 20)
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Error desconocido'
-    });
-  }
-});
+// ============================================================================
+// ENDPOINTS DE DEBUG ELIMINADOS POR SEGURIDAD
+// Los siguientes endpoints fueron removidos por exponer información sensible:
+// - GET /check-user/:email - Exponía hashes de contraseñas
+// - POST /test-login - Exponía información de autenticación
+// ============================================================================
 
 export default router;

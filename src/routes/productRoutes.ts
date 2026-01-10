@@ -15,7 +15,7 @@ import {
   updateProductValidation
 } from '../controllers/productController';
 import { protect, authorize } from '../middleware/auth';
-import { validate } from '../middleware/validation';
+import { validate, validateObjectId } from '../middleware/validation';
 import { UserRole } from '../models/User';
 
 const router = express.Router();
@@ -42,8 +42,9 @@ router.get('/by-barcode/:barcode', getProductByBarcode);
 router.post('/', authorize(UserRole.ADMIN), createProductValidation, validate, createProduct);
 
 // Estas rutas deben ir al final porque /:id puede coincidir con cualquier cosa
-router.get('/:id', getProductById);
-router.put('/:id', authorize(UserRole.ADMIN), updateProductValidation, validate, updateProduct);
-router.delete('/:id', authorize(UserRole.ADMIN), deleteProduct);
+// Se valida que :id sea un ObjectId válido de MongoDB
+router.get('/:id', validateObjectId('id'), getProductById);
+router.put('/:id', validateObjectId('id'), authorize(UserRole.ADMIN), updateProductValidation, validate, updateProduct);
+router.delete('/:id', validateObjectId('id'), authorize(UserRole.ADMIN), deleteProduct);
 
 export default router;

@@ -126,11 +126,13 @@ const SaleSchema: Schema = new Schema(
   }
 );
 
-// Índices
-SaleSchema.index({ store: 1, createdAt: -1 });
+// Índices para búsquedas frecuentes
+SaleSchema.index({ store: 1, createdAt: -1 }); // Ventas por tienda ordenadas por fecha
 SaleSchema.index({ soldBy: 1 });
 SaleSchema.index({ status: 1 });
-SaleSchema.index({ createdAt: -1 });
+SaleSchema.index({ createdAt: -1 }); // Consultas de reportes por fecha
+SaleSchema.index({ paymentMethod: 1 }); // Filtros por método de pago
+SaleSchema.index({ store: 1, status: 1, createdAt: -1 }); // Reportes de tienda con estado
 
 // Calcular subtotales antes de guardar
 SaleSchema.pre<ISale>('save', function(next) {

@@ -6,15 +6,15 @@ import { AuthRequest } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import logger from '../utils/logger';
 import mongoose from 'mongoose';
+import { getPaginationParams, paginatedApiResponse } from '../utils/pagination';
 
 // @desc    Obtener todos los productos
 // @route   GET /api/products
 // @access  Private
 export const getProducts = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { search, category, isActive, page = 1, limit = 50 } = req.query;
-
-    console.log('🔍 [PRODUCTS] Búsqueda de productos:', { search, category, isActive });
+    const { search, category, isActive } = req.query;
+    const paginationOptions = getPaginationParams(req);
 
     const query: any = {};
 
@@ -37,31 +37,15 @@ export const getProducts = async (req: AuthRequest, res: Response, next: NextFun
       query.isActive = isActive === 'true';
     }
 
-    const pageNum = parseInt(page as string);
-    const limitNum = parseInt(limit as string);
-    const skip = (pageNum - 1) * limitNum;
-
-    console.log('📋 [PRODUCTS] Query construida:', JSON.stringify(query, null, 2));
-
     const products = await Product.find(query)
       .sort({ name: 1 })
-      .skip(skip)
-      .limit(limitNum);
+      .skip(paginationOptions.skip)
+      .limit(paginationOptions.limit);
 
     const total = await Product.countDocuments(query);
 
-    console.log('✅ [PRODUCTS] Productos encontrados:', products.length);
-
-    res.json({
-      success: true,
-      count: products.length,
-      total,
-      page: pageNum,
-      pages: Math.ceil(total / limitNum),
-      data: { products }
-    });
+    res.json(paginatedApiResponse(products, total, paginationOptions, 'products'));
   } catch (error) {
-    console.error('❌ [PRODUCTS] Error al buscar productos:', error);
     next(error);
   }
 };

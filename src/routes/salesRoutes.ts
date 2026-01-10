@@ -13,7 +13,7 @@ import {
   cancelSaleValidation
 } from '../controllers/salesController';
 import { protect, authorize, checkStoreAccess, checkPermission } from '../middleware/auth';
-import { validate } from '../middleware/validation';
+import { validate, validateObjectId } from '../middleware/validation';
 import { UserRole } from '../models/User';
 
 const router = express.Router();
@@ -30,20 +30,18 @@ router.post('/', checkPermission('canAddSale'), createSaleValidation, validate, 
 router.get('/daily-cut', getDailyCut);
 
 // Obtener venta específica
-router.get('/detail/:id', getSaleById);
+router.get('/detail/:id', validateObjectId('id'), getSaleById);
 
 // Obtener ventas de una tienda
-router.get('/:storeId', checkStoreAccess, checkPermission('canViewSales'), getStoreSales);
+router.get('/:storeId', validateObjectId('storeId'), checkStoreAccess, checkPermission('canViewSales'), getStoreSales);
 
 // Estadísticas de ventas
-router.get('/:storeId/stats', checkStoreAccess, checkPermission('canViewReports'), getSalesStats);
-
-// NOTA: La ruta GET /detail/:id ya está definida arriba (línea 33)
+router.get('/:storeId/stats', validateObjectId('storeId'), checkStoreAccess, checkPermission('canViewReports'), getSalesStats);
 
 // Actualizar venta (solo admins)
-router.put('/:id', authorize(UserRole.ADMIN), updateSaleValidation, validate, updateSale);
+router.put('/:id', validateObjectId('id'), authorize(UserRole.ADMIN), updateSaleValidation, validate, updateSale);
 
 // Cancelar venta (solo admins)
-router.put('/:id/cancel', authorize(UserRole.ADMIN), cancelSaleValidation, validate, cancelSale);
+router.put('/:id/cancel', validateObjectId('id'), authorize(UserRole.ADMIN), cancelSaleValidation, validate, cancelSale);
 
 export default router;

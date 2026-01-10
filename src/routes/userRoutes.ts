@@ -12,7 +12,7 @@ import {
   updateUserValidation
 } from '../controllers/userController';
 import { protect, authorize } from '../middleware/auth';
-import { validate } from '../middleware/validation';
+import { validate, validateObjectId } from '../middleware/validation';
 import { UserRole } from '../models/User';
 
 const router = express.Router();
@@ -22,11 +22,11 @@ router.use(protect, authorize(UserRole.ADMIN));
 
 router.get('/', getUsers);
 router.post('/', createUserValidation, validate, createUser);
-router.get('/:id', getUserById);
-router.put('/:id', updateUserValidation, validate, updateUser);
-router.delete('/:id', deleteUser);
-router.post('/:id/reset-attempts', resetLoginAttempts);
-router.patch('/:id/reset-password', resetPassword);
-router.patch('/:id/activate', toggleUserActive);
+router.get('/:id', validateObjectId('id'), getUserById);
+router.put('/:id', validateObjectId('id'), updateUserValidation, validate, updateUser);
+router.delete('/:id', validateObjectId('id'), deleteUser);
+router.post('/:id/reset-attempts', validateObjectId('id'), resetLoginAttempts);
+router.patch('/:id/reset-password', validateObjectId('id'), resetPassword);
+router.patch('/:id/activate', validateObjectId('id'), toggleUserActive);
 
 export default router;
