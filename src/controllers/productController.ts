@@ -539,3 +539,109 @@ export const createSizeCurveValidation = [
   body('store').optional().isMongoId().withMessage('ID de tienda inválido'),
   body('quantityPerSize').optional().isInt({ min: 0 }).withMessage('La cantidad por talla debe ser un número entero positivo')
 ];
+
+// @desc    Generar SKU y código de barras únicos
+// @route   GET /api/products/generate-codes
+// @access  Private
+export const generateUniqueCodes = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { category, name } = req.query;
+    
+    // Generar prefijo para SKU basado en categoría o nombre
+    let prefix = 'PROD';
+    if (category && typeof category === 'string') {
+      // Tomar primeras 3-4 letras de la categoría
+      prefix = category.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 4) || 'PROD';
+    } else if (name && typeof name === 'string') {
+      // Tomar primeras letras del nombre
+      prefix = name.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 4) || 'PROD';
+    }
+    
+    // Generar SKU único
+    let sku = '';
+    let skuExists = true;
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (skuExists && attempts < maxAttempts) {
+      // Formato: PREFIJO-XXXXX (5 caracteres alfanuméricos)
+      const randomPart = Math.random().toString(36).substring(2, 7).toUpperCase();
+      sku = `${prefix}-${randomPart}`;
+      
+      const existing = await Product.findOne({ sku });
+      skuExists = !!existing;
+      attempts++;
+    }
+    
+    if (skuExists) {
+      throw new AppError('No se pudo generar un SKU único', 500);
+    }
+    
+    // Generar código de barras único (EAN-13 formato)
+    let barcode = '';
+    let barcodeExists = true;
+    attempts = 0;
+    
+    while (barcodeExists && attempts < maxAttempts) {
+      // Generar 12 dígitos + dígito verificador
+      const prefix12 = '789'; // Prefijo para productos internos
+      const randomDigits = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10)).join('');
+      const code12 = prefix12 + randomDigits;
+      
+      // Calcular dígito verificador EAN-13
+      let sum = 0;
+      for (let i = 0; i < 12; i++) {
+        sum += parseInt(code12[i]) * (i % 2 === 0 ? 1 : 3);
+      }
+      const checkDigit = (10 - (sum % 10)) % 10;
+      barcode = code12 + checkDigit;
+      
+      const existing = await Product.findOne({ barcode });
+      barcodeExists = !!existing;
+      attempts++;
+    }
+    
+    if (barcodeExists) {
+      throw new AppError('No se pudo generar un código de barras único', 500);
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        sku,
+        barcode
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Verificar si SKU o barcode ya existen
+// @route   GET /api/products/check-codes
+// @access  Private
+export const checkCodesAvailability = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { sku, barcode } = req.query;
+    
+    const result: { skuAvailable?: boolean; barcodeAvailable?: boolean } = {};
+    
+    if (sku && typeof sku === 'string') {
+      const existing = await Product.findOne({ sku: sku.trim() });
+      result.skuAvailable = !existing;
+    }
+    
+    if (barcode && typeof barcode === 'string' && barcode.trim() !== '') {
+      const existing = await Product.findOne({ barcode: barcode.trim() });
+      result.barcodeAvailable = !existing;
+    }
+    
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

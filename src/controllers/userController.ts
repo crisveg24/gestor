@@ -244,6 +244,48 @@ export const resetPassword = async (req: AuthRequest, res: Response, next: NextF
   }
 };
 
+// @desc    Generar contraseña temporal para usuario
+// @route   POST /api/users/:id/generate-password
+// @access  Private/Admin
+export const generateTemporaryPassword = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id).select('+password');
+
+    if (!user) {
+      throw new AppError('Usuario no encontrado', 404);
+    }
+
+    // Generar contraseña temporal de 12 caracteres
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
+    let temporaryPassword = '';
+    for (let i = 0; i < 12; i++) {
+      temporaryPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    user.password = temporaryPassword;
+    await user.save();
+
+    logger.info('Contraseña temporal generada:', {
+      userId: id,
+      generatedBy: req.user?._id
+    });
+
+    res.json({
+      success: true,
+      message: 'Contraseña temporal generada',
+      data: {
+        temporaryPassword,
+        userName: user.name,
+        userEmail: user.email
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Activar/desactivar usuario
 // @route   PATCH /api/users/:id/activate
 // @access  Private/Admin

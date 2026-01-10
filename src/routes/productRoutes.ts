@@ -9,6 +9,8 @@ import {
   updateProduct,
   deleteProduct,
   getCategories,
+  generateUniqueCodes,
+  checkCodesAvailability,
   createProductValidation,
   createProductWithInventoryValidation,
   createSizeCurveValidation,
@@ -28,6 +30,11 @@ router.use(protect);
 router.get('/', cacheMiddleware({ ttl: 30 }), getProducts);
 // Categorías - caché 5 minutos (cambian poco)
 router.get('/categories/list', cacheMiddleware({ ttl: 300 }), getCategories);
+
+// Generar SKU y código de barras únicos automáticamente
+router.get('/generate-codes', generateUniqueCodes);
+// Verificar disponibilidad de SKU y barcode
+router.get('/check-codes', checkCodesAvailability);
 
 // Ruta para crear productos con curva de tallas (todos los usuarios autenticados)
 // IMPORTANTE: Esta ruta debe ir ANTES de /:id para que no se confunda

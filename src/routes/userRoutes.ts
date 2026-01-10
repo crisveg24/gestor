@@ -7,6 +7,7 @@ import {
   deleteUser,
   resetLoginAttempts,
   resetPassword,
+  generateTemporaryPassword,
   toggleUserActive,
   createUserValidation,
   updateUserValidation
@@ -27,6 +28,7 @@ router.put('/:id', validateObjectId('id'), updateUserValidation, validate, updat
 router.delete('/:id', validateObjectId('id'), deleteUser);
 router.post('/:id/reset-attempts', validateObjectId('id'), resetLoginAttempts);
 router.patch('/:id/reset-password', validateObjectId('id'), resetPassword);
+router.post('/:id/generate-password', validateObjectId('id'), generateTemporaryPassword);
 router.patch('/:id/activate', validateObjectId('id'), toggleUserActive);
 
 export default router;
