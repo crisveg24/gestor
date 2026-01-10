@@ -9,25 +9,26 @@ import {
 } from '../controllers/dashboardController';
 import { protect, authorize, checkStoreAccess } from '../middleware/auth';
 import { UserRole } from '../models/User';
+import { cacheMiddleware } from '../utils/cache';
 
 const router = express.Router();
 
 router.use(protect);
 
-// Estadísticas globales (solo admin)
-router.get('/global', authorize(UserRole.ADMIN), getGlobalStats);
+// Estadísticas globales (solo admin) - caché 2 minutos
+router.get('/global', authorize(UserRole.ADMIN), cacheMiddleware({ ttl: 120 }), getGlobalStats);
 
-// Comparación entre tiendas (solo admin)
-router.get('/comparison', authorize(UserRole.ADMIN), getStoresComparison);
+// Comparación entre tiendas (solo admin) - caché 2 minutos
+router.get('/comparison', authorize(UserRole.ADMIN), cacheMiddleware({ ttl: 120 }), getStoresComparison);
 
-// Tendencia de ventas (últimos 30 días)
-router.get('/sales-trend', getSalesTrend);
+// Tendencia de ventas (últimos 30 días) - caché 5 minutos
+router.get('/sales-trend', cacheMiddleware({ ttl: 300 }), getSalesTrend);
 
-// Productos más vendidos
-router.get('/top-products', getTopProducts);
+// Productos más vendidos - caché 5 minutos
+router.get('/top-products', cacheMiddleware({ ttl: 300 }), getTopProducts);
 
-// Estadísticas por método de pago
-router.get('/payment-methods', getPaymentMethodsStats);
+// Estadísticas por método de pago - caché 2 minutos
+router.get('/payment-methods', cacheMiddleware({ ttl: 120 }), getPaymentMethodsStats);
 
 // Estadísticas por tienda
 router.get('/store/:storeId', checkStoreAccess, getStoreStats);

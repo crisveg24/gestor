@@ -12,7 +12,7 @@ import {
 import { protect, authorize } from '../middleware/auth';
 import { UserRole } from '../models/User';
 import { body } from 'express-validator';
-import { validate } from '../middleware/validation';
+import { validate, validateObjectId } from '../middleware/validation';
 
 const router = express.Router();
 
@@ -45,15 +45,15 @@ router.get('/categories/list', getSupplierCategories);
 router.get('/', getSuppliers);
 
 // GET /api/suppliers/:id
-router.get('/:id', getSupplierById);
+router.get('/:id', validateObjectId('id'), getSupplierById);
 
 // GET /api/suppliers/:id/purchase-orders - debe ir ANTES de rutas de admin
-router.get('/:id/purchase-orders', getSupplierPurchaseOrders);
+router.get('/:id/purchase-orders', validateObjectId('id'), getSupplierPurchaseOrders);
 
 // Rutas solo para administradores
 router.post('/', authorize(UserRole.ADMIN), createSupplierValidation, validate, createSupplier);
-router.put('/:id', authorize(UserRole.ADMIN), updateSupplierValidation, validate, updateSupplier);
-router.put('/:id/toggle-status', authorize(UserRole.ADMIN), toggleSupplierStatus);
-router.delete('/:id', authorize(UserRole.ADMIN), deleteSupplier);
+router.put('/:id', validateObjectId('id'), authorize(UserRole.ADMIN), updateSupplierValidation, validate, updateSupplier);
+router.put('/:id/toggle-status', validateObjectId('id'), authorize(UserRole.ADMIN), toggleSupplierStatus);
+router.delete('/:id', validateObjectId('id'), authorize(UserRole.ADMIN), deleteSupplier);
 
 export default router;

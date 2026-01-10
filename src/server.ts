@@ -2,6 +2,7 @@ import express, { Application, Request, Response } from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import mongoSanitize from 'express-mongo-sanitize';
 import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
@@ -66,6 +67,19 @@ const corsOptions = {
   preflightContinue: false
 };
 app.use(cors(corsOptions));
+
+// Compresión gzip/brotli - reduce tamaño de respuestas hasta 70%
+app.use(compression({
+  level: 6, // Balance entre velocidad y compresión (1-9)
+  threshold: 1024, // Solo comprimir respuestas mayores a 1KB
+  filter: (req, res) => {
+    // No comprimir si el cliente no acepta
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  }
+}));
 
 // Rate limiting
 const limiter = rateLimit({

@@ -17,14 +17,17 @@ import {
 import { protect, authorize } from '../middleware/auth';
 import { validate, validateObjectId } from '../middleware/validation';
 import { UserRole } from '../models/User';
+import { cacheMiddleware } from '../utils/cache';
 
 const router = express.Router();
 
 router.use(protect);
 
 // Rutas accesibles para todos los usuarios autenticados
-router.get('/', getProducts);
-router.get('/categories/list', getCategories);
+// Lista de productos - caché 30 segundos (se actualiza frecuentemente)
+router.get('/', cacheMiddleware({ ttl: 30 }), getProducts);
+// Categorías - caché 5 minutos (cambian poco)
+router.get('/categories/list', cacheMiddleware({ ttl: 300 }), getCategories);
 
 // Ruta para crear productos con curva de tallas (todos los usuarios autenticados)
 // IMPORTANTE: Esta ruta debe ir ANTES de /:id para que no se confunda
