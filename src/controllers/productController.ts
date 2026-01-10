@@ -78,24 +78,35 @@ export const getProductById = async (req: AuthRequest, res: Response, next: Next
 export const getProductByBarcode = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { barcode } = req.params;
-    const userId = req.user?._id;
+    
+    // Obtener la tienda del usuario (admin puede pasar storeId en query)
+    const userStoreId = req.user?.store;
+    const queryStoreId = req.query.storeId as string;
+    const storeId = queryStoreId || userStoreId;
 
-    // Buscar el producto por barcode
-    const product = await Product.findOne({ barcode: barcode.trim() });
+    // Buscar el producto por barcode O por SKU
+    const product = await Product.findOne({ 
+      $or: [
+        { barcode: barcode.trim() },
+        { sku: barcode.trim() }
+      ]
+    });
 
     if (!product) {
       throw new AppError('Producto no encontrado', 404);
     }
 
-    // Obtener inventario del producto para la tienda del usuario
+    // Obtener inventario del producto para la tienda
     const inventory = await Inventory.findOne({
       product: product._id,
-      store: userId
+      store: storeId
     });
 
     // Preparar respuesta con información de inventario
+    // Incluimos 'stock' directamente para compatibilidad con frontend
     const response = {
       ...product.toObject(),
+      stock: inventory ? inventory.quantity : 0,
       inventory: inventory ? {
         quantity: inventory.quantity,
         minStock: inventory.minStock,
