@@ -19,17 +19,17 @@ import {
 import { protect, authorize } from '../middleware/auth';
 import { validate, validateObjectId } from '../middleware/validation';
 import { UserRole } from '../models/User';
-import { cacheMiddleware } from '../utils/cache';
+// import { cacheMiddleware } from '../utils/cache'; // Deshabilitado temporalmente
 
 const router = express.Router();
 
 router.use(protect);
 
 // Rutas accesibles para todos los usuarios autenticados
-// Lista de productos - caché 30 segundos (se actualiza frecuentemente)
-router.get('/', cacheMiddleware({ ttl: 30 }), getProducts);
-// Categorías - caché 5 minutos (cambian poco)
-router.get('/categories/list', cacheMiddleware({ ttl: 300 }), getCategories);
+// Lista de productos - SIN caché por ahora para estabilidad
+router.get('/', getProducts);
+// Categorías
+router.get('/categories/list', getCategories);
 
 // Generar SKU y código de barras únicos automáticamente
 router.get('/generate-codes', generateUniqueCodes);
