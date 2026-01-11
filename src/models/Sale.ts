@@ -14,6 +14,7 @@ export interface ISaleItem {
 }
 
 export interface ISale extends Document {
+  saleCode: string;
   store: mongoose.Types.ObjectId;
   items: ISaleItem[];
   total: number;
@@ -24,6 +25,7 @@ export interface ISale extends Document {
   status: SaleStatus;
   soldBy: mongoose.Types.ObjectId;
   notes?: string;
+  wasEdited: boolean;
   modifiedBy?: mongoose.Types.ObjectId;
   modifiedAt?: Date;
   cancelledBy?: mongoose.Types.ObjectId;
@@ -33,8 +35,23 @@ export interface ISale extends Document {
   updatedAt: Date;
 }
 
+// Función para generar código de venta único
+const generateSaleCode = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `VTA-${year}${month}${day}-${random}`;
+};
+
 const SaleSchema: Schema = new Schema(
   {
+    saleCode: {
+      type: String,
+      unique: true,
+      default: generateSaleCode
+    },
     store: {
       type: Schema.Types.ObjectId,
       ref: 'Store',
@@ -102,6 +119,10 @@ const SaleSchema: Schema = new Schema(
       type: String,
       maxlength: [500, 'Las notas no pueden exceder 500 caracteres']
     },
+    wasEdited: {
+      type: Boolean,
+      default: false
+    },
     modifiedBy: {
       type: Schema.Types.ObjectId,
       ref: 'User'
@@ -127,6 +148,7 @@ const SaleSchema: Schema = new Schema(
 );
 
 // Índices para búsquedas frecuentes
+SaleSchema.index({ saleCode: 1 }); // Búsqueda por código de venta
 SaleSchema.index({ store: 1, createdAt: -1 }); // Ventas por tienda ordenadas por fecha
 SaleSchema.index({ soldBy: 1 });
 SaleSchema.index({ status: 1 });

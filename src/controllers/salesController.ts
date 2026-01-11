@@ -172,10 +172,10 @@ export const getAllSales = async (req: AuthRequest, res: Response, next: NextFun
       query.paymentMethod = paymentMethod;
     }
 
-    // Búsqueda por texto (número de venta o nombre del vendedor)
+    // Búsqueda por texto (código de venta)
     if (search) {
       query.$or = [
-        { saleNumber: { $regex: search, $options: 'i' } }
+        { saleCode: { $regex: search, $options: 'i' } }
       ];
     }
 
@@ -198,6 +198,8 @@ export const getAllSales = async (req: AuthRequest, res: Response, next: NextFun
     const sales = await Sale.find(query)
       .populate('store', 'name')
       .populate('soldBy', 'name email')
+      .populate('modifiedBy', 'name email')
+      .populate('cancelledBy', 'name email')
       .populate('items.product', 'name sku price')
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -520,6 +522,140 @@ export const getSalesStats = async (req: AuthRequest, res: Response, next: NextF
   }
 };
 
+// @desc    Editar items de una venta (con ajuste de inventario)
+// @route   PUT /api/sales/:id/items
+// @access  Private/Admin
+export const editSaleItems = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { id } = req.params;
+    const { items, notes, paymentMethod, discount, tax } = req.body;
+
+    logger.info('✏️ [SALES] Editando items de venta:', { id, itemsCount: items?.length });
+
+    const sale = await Sale.findById(id).session(session);
+
+    if (!sale) {
+      await session.abortTransaction();
+      throw new AppError('Venta no encontrada', 404);
+    }
+
+    // Solo se pueden editar ventas completadas
+    if (sale.status !== SaleStatus.COMPLETED) {
+      await session.abortTransaction();
+      throw new AppError('Solo se pueden editar ventas completadas', 400);
+    }
+
+    // Validar permisos
+    if (req.user?.role !== UserRole.ADMIN) {
+      await session.abortTransaction();
+      throw new AppError('Solo administradores pueden editar items de ventas', 403);
+    }
+
+    // 1. Devolver items originales al inventario
+    for (const oldItem of sale.items) {
+      if (oldItem.unitPrice > 0) { // Solo items que no son ñapas
+        const inventoryItem = await Inventory.findOne({
+          store: sale.store,
+          product: oldItem.product
+        }).session(session);
+
+        if (inventoryItem) {
+          inventoryItem.quantity += oldItem.quantity;
+          inventoryItem.updatedBy = req.user?._id as any;
+          await inventoryItem.save({ session });
+          logger.info(`📦 Devuelto al inventario: ${oldItem.quantity} unidades`);
+        }
+      }
+    }
+
+    // 2. Si se proporcionan nuevos items, validar y descontar del inventario
+    if (items && items.length > 0) {
+      const newSaleItems = [];
+      
+      for (const item of items) {
+        // Buscar en inventario
+        const inventoryItem = await Inventory.findOne({
+          store: sale.store,
+          product: item.product
+        }).session(session);
+
+        if (!inventoryItem && item.unitPrice > 0) {
+          await session.abortTransaction();
+          throw new AppError(`Producto no encontrado en inventario: ${item.product}`, 404);
+        }
+
+        if (inventoryItem && item.unitPrice > 0) {
+          if (inventoryItem.quantity < item.quantity) {
+            await session.abortTransaction();
+            throw new AppError(`Stock insuficiente. Disponible: ${inventoryItem.quantity}`, 400);
+          }
+
+          // Descontar del inventario
+          inventoryItem.quantity -= item.quantity;
+          inventoryItem.updatedBy = req.user?._id as any;
+          await inventoryItem.save({ session });
+        }
+
+        newSaleItems.push({
+          product: item.product,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          subtotal: item.quantity * item.unitPrice
+        });
+      }
+
+      sale.items = newSaleItems;
+    }
+
+    // 3. Actualizar otros campos
+    if (notes !== undefined) sale.notes = notes;
+    if (paymentMethod !== undefined) sale.paymentMethod = paymentMethod;
+    if (discount !== undefined) sale.discount = discount;
+    if (tax !== undefined) sale.tax = tax;
+
+    // 4. Recalcular totales
+    sale.total = sale.items.reduce((sum, item) => sum + item.subtotal, 0);
+    sale.finalTotal = sale.total + sale.tax - sale.discount;
+
+    // 5. Marcar como editada
+    sale.wasEdited = true;
+    sale.modifiedBy = req.user?._id as any;
+    sale.modifiedAt = new Date();
+
+    await sale.save({ session });
+    await session.commitTransaction();
+
+    // Obtener venta poblada para respuesta
+    const updatedSale = await Sale.findById(id)
+      .populate('store', 'name')
+      .populate('soldBy', 'name email')
+      .populate('items.product', 'name sku price')
+      .populate('modifiedBy', 'name email');
+
+    logger.info('✅ [SALES] Venta editada exitosamente:', {
+      saleId: id,
+      saleCode: sale.saleCode,
+      newTotal: sale.finalTotal,
+      modifiedBy: req.user?._id
+    });
+
+    res.json({
+      success: true,
+      data: updatedSale,
+      message: 'Venta actualizada exitosamente'
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    logger.error('❌ [SALES] Error al editar venta:', error);
+    next(error);
+  } finally {
+    session.endSession();
+  }
+};
+
 // Validaciones
 export const createSaleValidation = [
   body('store').isMongoId().withMessage('ID de tienda inválido'),
@@ -536,6 +672,17 @@ export const updateSaleValidation = [
   body('notes').optional().isString().isLength({ max: 500 }).withMessage('Las notas no pueden exceder 500 caracteres'),
   body('paymentMethod').optional().isIn(['efectivo', 'nequi', 'daviplata', 'llave_bancolombia', 'tarjeta', 'transferencia']).withMessage('Método de pago inválido'),
   body('discount').optional().isFloat({ min: 0 }).withMessage('El descuento debe ser positivo')
+];
+
+export const editSaleItemsValidation = [
+  body('items').optional().isArray({ min: 1 }).withMessage('Debe incluir al menos un item'),
+  body('items.*.product').optional().isMongoId().withMessage('ID de producto inválido'),
+  body('items.*.quantity').optional().isInt({ min: 1 }).withMessage('La cantidad debe ser al menos 1'),
+  body('items.*.unitPrice').optional().isFloat({ min: 0 }).withMessage('El precio unitario debe ser positivo'),
+  body('notes').optional().isString().isLength({ max: 500 }).withMessage('Las notas no pueden exceder 500 caracteres'),
+  body('paymentMethod').optional().isIn(['efectivo', 'nequi', 'daviplata', 'llave_bancolombia', 'tarjeta', 'transferencia']).withMessage('Método de pago inválido'),
+  body('discount').optional().isFloat({ min: 0 }).withMessage('El descuento debe ser positivo'),
+  body('tax').optional().isFloat({ min: 0 }).withMessage('El impuesto debe ser positivo')
 ];
 
 export const cancelSaleValidation = [
