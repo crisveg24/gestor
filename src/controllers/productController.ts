@@ -557,26 +557,48 @@ export const generateUniqueCodes = async (req: AuthRequest, res: Response, next:
   try {
     const { category, name } = req.query;
     
-    // Generar prefijo para SKU basado en categoría o nombre
+    // Generar prefijo para SKU basado en nombre del producto
     let prefix = 'PROD';
-    if (category && typeof category === 'string') {
-      // Tomar primeras 3-4 letras de la categoría
-      prefix = category.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 4) || 'PROD';
-    } else if (name && typeof name === 'string') {
-      // Tomar primeras letras del nombre
-      prefix = name.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 4) || 'PROD';
+    let namePart = '';
+    
+    if (name && typeof name === 'string') {
+      // Limpiar y procesar el nombre
+      const words = name.toUpperCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Quitar acentos
+        .replace(/[^A-Z0-9\s]/g, '') // Solo letras, números y espacios
+        .trim()
+        .split(/\s+/)
+        .filter(w => w.length > 0);
+      
+      if (words.length >= 2) {
+        // Tomar las primeras 2-3 letras de las primeras 2 palabras
+        prefix = words[0].substring(0, 3) + words[1].substring(0, 2);
+      } else if (words.length === 1) {
+        // Una sola palabra: tomar hasta 4 caracteres
+        prefix = words[0].substring(0, 4);
+      }
+      
+      // Agregar parte aleatoria corta del nombre
+      namePart = words.join('').substring(0, 3);
+    } else if (category && typeof category === 'string') {
+      // Fallback: usar categoría
+      prefix = category.toUpperCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^A-Z]/g, '')
+        .substring(0, 4) || 'PROD';
     }
     
-    // Generar SKU único
+    // Generar SKU único con mejor referencia al nombre
     let sku = '';
     let skuExists = true;
     let attempts = 0;
     const maxAttempts = 10;
     
     while (skuExists && attempts < maxAttempts) {
-      // Formato: PREFIJO-XXXXX (5 caracteres alfanuméricos)
-      const randomPart = Math.random().toString(36).substring(2, 7).toUpperCase();
-      sku = `${prefix}-${randomPart}`;
+      // Formato: PREFIJO-PARTE-XXX (más legible y corto)
+      const randomPart = Math.random().toString(36).substring(2, 5).toUpperCase();
+      sku = namePart ? `${prefix}-${namePart}-${randomPart}` : `${prefix}-${randomPart}`;
+      sku = sku.substring(0, 15); // Limitar longitud
       
       const existing = await Product.findOne({ sku });
       skuExists = !!existing;
