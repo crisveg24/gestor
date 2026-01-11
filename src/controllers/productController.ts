@@ -380,7 +380,7 @@ export const updateProduct = async (req: AuthRequest, res: Response, next: NextF
   }
 };
 
-// @desc    Eliminar producto
+// @desc    Eliminar producto permanentemente
 // @route   DELETE /api/products/:id
 // @access  Private/Admin
 export const deleteProduct = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -393,18 +393,64 @@ export const deleteProduct = async (req: AuthRequest, res: Response, next: NextF
       throw new AppError('Producto no encontrado', 404);
     }
 
-    // Soft delete - marcar como inactivo en lugar de eliminar
-    product.isActive = false;
-    await product.save();
+    // Verificar si tiene ventas asociadas (opcional, para protección)
+    // Si quieres evitar eliminar productos con historial, descomenta esto:
+    // const hasSales = await Sale.exists({ 'items.product': id });
+    // if (hasSales) {
+    //   throw new AppError('No se puede eliminar un producto con ventas asociadas. Use desactivar.', 400);
+    // }
 
-    logger.info('Producto eliminado (soft delete):', {
+    // Eliminar inventario asociado
+    await Inventory.deleteMany({ product: id });
+    
+    // Eliminar historial de precios
+    await PriceHistory.deleteMany({ product: id });
+
+    // Eliminar el producto permanentemente
+    await Product.findByIdAndDelete(id);
+
+    logger.info('Producto eliminado permanentemente:', {
       productId: id,
+      productName: product.name,
       deletedBy: req.user?._id
     });
 
     res.json({
       success: true,
-      message: 'Producto eliminado'
+      message: 'Producto eliminado permanentemente'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Cambiar estado del producto (activar/desactivar)
+// @route   PATCH /api/products/:id/toggle-status
+// @access  Private/Admin
+export const toggleProductStatus = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const product = await Product.findById(id);
+
+    if (!product) {
+      throw new AppError('Producto no encontrado', 404);
+    }
+
+    product.isActive = !product.isActive;
+    await product.save();
+
+    logger.info('Estado del producto cambiado:', {
+      productId: id,
+      productName: product.name,
+      newStatus: product.isActive ? 'activo' : 'inactivo',
+      changedBy: req.user?._id
+    });
+
+    res.json({
+      success: true,
+      data: product,
+      message: product.isActive ? 'Producto activado' : 'Producto desactivado'
     });
   } catch (error) {
     next(error);

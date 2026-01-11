@@ -8,6 +8,7 @@ import {
   createProductsWithSizeCurve,
   updateProduct,
   deleteProduct,
+  toggleProductStatus,
   getCategories,
   generateUniqueCodes,
   checkCodesAvailability,
@@ -61,6 +62,7 @@ router.post('/', authorize(UserRole.ADMIN), createProductValidation, validate, c
 router.get('/:id', validateObjectId('id'), getProductById);
 router.get('/:id/price-history', validateObjectId('id'), getProductPriceHistory);
 router.put('/:id', validateObjectId('id'), authorize(UserRole.ADMIN), updateProductValidation, validate, updateProduct);
+router.patch('/:id/toggle-status', validateObjectId('id'), authorize(UserRole.ADMIN), toggleProductStatus);
 router.delete('/:id', validateObjectId('id'), authorize(UserRole.ADMIN), deleteProduct);
 
 export default router;
