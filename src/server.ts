@@ -121,6 +121,11 @@ import reportRoutes from './routes/reportRoutes';
 import seedRoutes from './routes/seed.routes';
 import supplierRoutes from './routes/supplierRoutes';
 import purchaseOrderRoutes from './routes/purchaseOrderRoutes';
+import creditRoutes from './routes/creditRoutes';
+import transferRoutes from './routes/transferRoutes';
+import cashRegisterRoutes from './routes/cashRegisterRoutes';
+import returnRoutes from './routes/returnRoutes';
+import backupRoutes from './routes/backupRoutes';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/stores', storeRoutes);
@@ -133,6 +138,11 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/seed', seedRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/purchase-orders', purchaseOrderRoutes);
+app.use('/api/credits', creditRoutes);
+app.use('/api/transfers', transferRoutes);
+app.use('/api/cash-register', cashRegisterRoutes);
+app.use('/api/returns', returnRoutes);
+app.use('/api/backup', backupRoutes);
 
 // Ruta de health check
 app.get('/health', (_req: Request, res: Response) => {

@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { body } from 'express-validator';
 import Product from '../models/Product';
 import Inventory from '../models/Inventory';
+import PriceHistory from '../models/PriceHistory';
 import { AuthRequest } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import logger from '../utils/logger';
@@ -301,7 +302,7 @@ export const createProductWithInventory = async (req: AuthRequest, res: Response
 export const updateProduct = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
-    const { name, description, sku, barcode, category, price, cost, isActive } = req.body;
+    const { name, description, sku, barcode, category, price, cost, isActive, priceChangeReason } = req.body;
 
     const product = await Product.findById(id);
 
@@ -315,6 +316,39 @@ export const updateProduct = async (req: AuthRequest, res: Response, next: NextF
       if (skuExists) {
         throw new AppError('El SKU ya existe', 400);
       }
+    }
+
+    // Registrar cambio de precio si hubo
+    const oldPrice = product.price;
+    const oldCost = product.cost;
+    const newPrice = price !== undefined ? price : oldPrice;
+    const newCost = cost !== undefined ? cost : oldCost;
+
+    if (price !== undefined && price !== oldPrice) {
+      const percentageChange = oldPrice > 0 
+        ? ((newPrice - oldPrice) / oldPrice) * 100 
+        : 0;
+      
+      await PriceHistory.create({
+        product: product._id,
+        oldPrice,
+        newPrice,
+        oldCost: cost !== undefined ? oldCost : undefined,
+        newCost: cost !== undefined ? newCost : undefined,
+        changeType: newPrice > oldPrice ? 'increase' : (newPrice < oldPrice ? 'decrease' : 'no_change'),
+        percentageChange: Math.round(percentageChange * 100) / 100,
+        changedBy: req.user?._id,
+        reason: priceChangeReason || undefined
+      });
+
+      logger.info('Cambio de precio registrado:', {
+        productId: product._id,
+        productName: product.name,
+        oldPrice,
+        newPrice,
+        percentageChange: `${percentageChange.toFixed(2)}%`,
+        changedBy: req.user?.name
+      });
     }
 
     if (name !== undefined) product.name = name;
@@ -671,6 +705,101 @@ export const checkCodesAvailability = async (req: AuthRequest, res: Response, ne
     res.json({
       success: true,
       data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Obtener historial de precios de un producto
+// @route   GET /api/products/:id/price-history
+// @access  Private
+export const getProductPriceHistory = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { limit = 50 } = req.query;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      throw new AppError('Producto no encontrado', 404);
+    }
+
+    const priceHistory = await PriceHistory.find({ product: id })
+      .populate('changedBy', 'name')
+      .sort({ createdAt: -1 })
+      .limit(Number(limit));
+
+    res.json({
+      success: true,
+      count: priceHistory.length,
+      data: {
+        product: {
+          _id: product._id,
+          name: product.name,
+          sku: product.sku,
+          currentPrice: product.price,
+          currentCost: product.cost
+        },
+        history: priceHistory
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Obtener resumen de cambios de precios recientes
+// @route   GET /api/products/price-changes
+// @access  Private/Admin
+export const getRecentPriceChanges = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { days = 30, limit = 100 } = req.query;
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - Number(days));
+
+    const priceChanges = await PriceHistory.find({
+      createdAt: { $gte: startDate }
+    })
+      .populate('product', 'name sku category')
+      .populate('changedBy', 'name')
+      .sort({ createdAt: -1 })
+      .limit(Number(limit));
+
+    // Estadísticas de cambios
+    const stats = await PriceHistory.aggregate([
+      { $match: { createdAt: { $gte: startDate } } },
+      {
+        $group: {
+          _id: '$changeType',
+          count: { $sum: 1 },
+          avgChange: { $avg: '$percentageChange' }
+        }
+      }
+    ]);
+
+    const statsSummary = {
+      increases: 0,
+      decreases: 0,
+      avgIncreasePercent: 0,
+      avgDecreasePercent: 0
+    };
+
+    for (const stat of stats) {
+      if (stat._id === 'increase') {
+        statsSummary.increases = stat.count;
+        statsSummary.avgIncreasePercent = Math.round(stat.avgChange * 100) / 100;
+      } else if (stat._id === 'decrease') {
+        statsSummary.decreases = stat.count;
+        statsSummary.avgDecreasePercent = Math.round(Math.abs(stat.avgChange) * 100) / 100;
+      }
+    }
+
+    res.json({
+      success: true,
+      count: priceChanges.length,
+      stats: statsSummary,
+      data: priceChanges
     });
   } catch (error) {
     next(error);

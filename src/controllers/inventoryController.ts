@@ -295,11 +295,15 @@ export const deleteInventoryItem = async (req: AuthRequest, res: Response, next:
 // @access  Private
 export const getLowStockAlerts = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const { storeId } = req.query;
     let query: any = {};
 
     // Si es usuario, solo ver su tienda
     if (req.user?.role === UserRole.USER) {
       query.store = req.user.store;
+    } else if (storeId) {
+      // Admin puede filtrar por tienda específica
+      query.store = storeId;
     }
 
     const inventory = await Inventory.find(query)
@@ -309,10 +313,35 @@ export const getLowStockAlerts = async (req: AuthRequest, res: Response, next: N
     // Filtrar items con stock bajo
     const lowStockItems = inventory.filter(item => item.quantity <= item.minStock);
 
+    // Mapear a formato más útil para el frontend
+    const mappedItems = lowStockItems.map(item => {
+      const product = item.product as any;
+      const store = item.store as any;
+      return {
+        _id: item._id,
+        productId: product?._id,
+        productName: product?.name || 'Producto desconocido',
+        sku: product?.sku || '',
+        currentStock: item.quantity,
+        minStock: item.minStock,
+        storeId: store?._id,
+        storeName: store?.name || 'Tienda desconocida',
+        isCritical: item.quantity === 0,
+      };
+    });
+
+    // Ordenar: primero los críticos (stock 0), luego por menor stock
+    mappedItems.sort((a, b) => {
+      if (a.isCritical && !b.isCritical) return -1;
+      if (!a.isCritical && b.isCritical) return 1;
+      return a.currentStock - b.currentStock;
+    });
+
     res.json({
       success: true,
-      count: lowStockItems.length,
-      data: lowStockItems
+      count: mappedItems.length,
+      criticalCount: mappedItems.filter(i => i.isCritical).length,
+      data: mappedItems
     });
   } catch (error) {
     next(error);

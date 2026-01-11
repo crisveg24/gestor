@@ -11,6 +11,8 @@ import {
   getCategories,
   generateUniqueCodes,
   checkCodesAvailability,
+  getProductPriceHistory,
+  getRecentPriceChanges,
   createProductValidation,
   createProductWithInventoryValidation,
   createSizeCurveValidation,
@@ -36,6 +38,9 @@ router.get('/generate-codes', generateUniqueCodes);
 // Verificar disponibilidad de SKU y barcode
 router.get('/check-codes', checkCodesAvailability);
 
+// Historial de cambios de precios (solo admin)
+router.get('/price-changes', authorize(UserRole.ADMIN), getRecentPriceChanges);
+
 // Ruta para crear productos con curva de tallas (todos los usuarios autenticados)
 // IMPORTANTE: Esta ruta debe ir ANTES de /:id para que no se confunda
 router.post('/size-curve', createSizeCurveValidation, validate, createProductsWithSizeCurve);
@@ -54,6 +59,7 @@ router.post('/', authorize(UserRole.ADMIN), createProductValidation, validate, c
 // Estas rutas deben ir al final porque /:id puede coincidir con cualquier cosa
 // Se valida que :id sea un ObjectId válido de MongoDB
 router.get('/:id', validateObjectId('id'), getProductById);
+router.get('/:id/price-history', validateObjectId('id'), getProductPriceHistory);
 router.put('/:id', validateObjectId('id'), authorize(UserRole.ADMIN), updateProductValidation, validate, updateProduct);
 router.delete('/:id', validateObjectId('id'), authorize(UserRole.ADMIN), deleteProduct);
 
