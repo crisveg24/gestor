@@ -7,11 +7,15 @@ import mongoSanitize from 'express-mongo-sanitize';
 import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
 import connectDB from './config/database';
+import validateEnv from './config/validateEnv';
 import { errorHandler, notFound } from './middleware/errorHandler';
 import logger from './utils/logger';
 
 // Cargar variables de entorno
 dotenv.config();
+
+// Validar variables de entorno antes de continuar
+validateEnv();
 
 // Conectar a base de datos
 connectDB();
@@ -32,8 +36,7 @@ app.use(helmet({
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
-  'https://gestor-fronted.vercel.app',
-  'https://gestor-frontend.vercel.app', // Variante del dominio Vercel
+  'https://gestor-frontend.vercel.app',
   'https://vrmajo.xyz',
   'https://www.vrmajo.xyz'
 ];
