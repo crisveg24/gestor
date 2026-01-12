@@ -630,7 +630,7 @@ export const createSizeCurveValidation = [
   body('category').trim().notEmpty().withMessage('La categoría es requerida'),
   body('price').isFloat({ min: 0 }).withMessage('El precio debe ser un número positivo'),
   body('cost').isFloat({ min: 0 }).withMessage('El costo debe ser un número positivo'),
-  body('sizeType').isIn(['zapatos', 'bebe', 'nino', 'adulto', 'unica']).withMessage('Tipo de talla inválido'),
+  body('sizeType').isIn(['zapatos', 'bebe', 'nino', 'adulto', 'unica', 'metros', 'colores', 'voltaje', 'capacidad', 'medidas']).withMessage('Tipo de talla inválido'),
   body('sizes').isArray({ min: 1 }).withMessage('Debes proporcionar al menos una talla'),
   body('store').optional().isMongoId().withMessage('ID de tienda inválido'),
   body('quantityPerSize').optional().isInt({ min: 0 }).withMessage('La cantidad por talla debe ser un número entero positivo')
