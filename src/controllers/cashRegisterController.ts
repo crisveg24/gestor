@@ -256,16 +256,15 @@ export const closeCashRegister = async (req: AuthRequest, res: Response, next: N
       throw new AppError('No hay caja abierta para cerrar', 400);
     }
 
-    // Obtener ventas del día
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Obtener ventas desde que se abrió la caja
+    const openedAt = cashRegister.openedAt;
 
     const salesByMethod = await Sale.aggregate([
       {
         $match: {
           store: new mongoose.Types.ObjectId(targetStore as string),
           status: SaleStatus.COMPLETED,
-          createdAt: { $gte: today }
+          createdAt: { $gte: openedAt }
         }
       },
       {
@@ -364,14 +363,71 @@ export const getCashRegisterHistory = async (req: AuthRequest, res: Response, ne
       if (endDate) query.date.$lte = new Date(endDate as string);
     }
 
-    const history = await CashRegister.find(query)
+    const historyRaw = await CashRegister.find(query)
       .populate('store', 'name')
       .populate('openedBy', 'name')
       .populate('closedBy', 'name')
       .sort({ date: -1 })
       .limit(Number(limit));
 
-    // Estadísticas
+    // Enriquecer cada registro con estadísticas de ventas
+    const history = await Promise.all(
+      historyRaw.map(async (register) => {
+        const registerObj = register.toObject();
+
+        // Buscar ventas entre apertura y cierre
+        const salesQuery: any = {
+          store: register.store._id,
+          status: SaleStatus.COMPLETED,
+          createdAt: { $gte: register.openedAt }
+        };
+        if (register.closedAt) {
+          salesQuery.createdAt.$lte = register.closedAt;
+        }
+
+        // Obtener estadísticas de ventas por método de pago
+        const salesStats = await Sale.aggregate([
+          { $match: salesQuery },
+          {
+            $group: {
+              _id: '$paymentMethod',
+              total: { $sum: '$finalTotal' },
+              count: { $sum: 1 }
+            }
+          }
+        ]);
+
+        // Calcular totales
+        let totalSales = 0;
+        let salesCount = 0;
+        const salesByMethod: Record<string, { total: number; count: number }> = {
+          efectivo: { total: 0, count: 0 },
+          nequi: { total: 0, count: 0 },
+          daviplata: { total: 0, count: 0 },
+          llave_bancolombia: { total: 0, count: 0 },
+          tarjeta: { total: 0, count: 0 },
+          transferencia: { total: 0, count: 0 }
+        };
+
+        for (const stat of salesStats) {
+          totalSales += stat.total;
+          salesCount += stat.count;
+          if (salesByMethod[stat._id]) {
+            salesByMethod[stat._id] = { total: stat.total, count: stat.count };
+          }
+        }
+
+        return {
+          ...registerObj,
+          totalSales,
+          salesCount,
+          salesByMethodDetail: salesByMethod,
+          expectedAmount: registerObj.expectedClosingAmount
+        };
+      })
+    );
+
+    // Estadísticas globales
     const stats = await CashRegister.aggregate([
       { $match: query },
       {
