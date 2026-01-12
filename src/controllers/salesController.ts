@@ -9,6 +9,16 @@ import { UserRole } from '../models/User';
 import logger from '../utils/logger';
 import mongoose from 'mongoose';
 
+// Helper para convertir string a ObjectId de forma segura
+const toObjectId = (id: string | undefined): mongoose.Types.ObjectId | undefined => {
+  if (!id) return undefined;
+  try {
+    return new mongoose.Types.ObjectId(id);
+  } catch {
+    return undefined;
+  }
+};
+
 // @desc    Crear nueva venta
 // @route   POST /api/sales
 // @access  Private
@@ -727,9 +737,15 @@ export const getDailyCut = async (req: AuthRequest, res: Response, next: NextFun
       throw new AppError('Tienda no encontrada', 404);
     }
 
+    // Convertir a ObjectId para las queries aggregate
+    const storeObjectId = toObjectId(targetStore as string);
+    if (!storeObjectId) {
+      throw new AppError('ID de tienda inválido', 400);
+    }
+
     // Query base
     const matchQuery: any = {
-      store: targetStore,
+      store: storeObjectId,
       status: SaleStatus.COMPLETED,
       createdAt: {
         $gte: startOfDay,

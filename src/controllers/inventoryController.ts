@@ -9,6 +9,16 @@ import { UserRole } from '../models/User';
 import logger from '../utils/logger';
 import mongoose from 'mongoose';
 
+// Helper para convertir string a ObjectId de forma segura
+const toObjectId = (id: string | undefined): mongoose.Types.ObjectId | undefined => {
+  if (!id) return undefined;
+  try {
+    return new mongoose.Types.ObjectId(id);
+  } catch {
+    return undefined;
+  }
+};
+
 // @desc    Obtener inventario (todas las tiendas o filtrado por tienda)
 // @route   GET /api/inventory
 // @access  Private
@@ -303,7 +313,10 @@ export const getLowStockAlerts = async (req: AuthRequest, res: Response, next: N
       query.store = req.user.store;
     } else if (storeId) {
       // Admin puede filtrar por tienda específica
-      query.store = storeId;
+      const storeObjectId = toObjectId(storeId as string);
+      if (storeObjectId) {
+        query.store = storeObjectId;
+      }
     }
 
     const inventory = await Inventory.find(query)

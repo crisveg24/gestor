@@ -1,10 +1,21 @@
 import { Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import Sale, { SaleStatus } from '../models/Sale';
 import Inventory from '../models/Inventory';
 import Store from '../models/Store';
 import User, { UserRole } from '../models/User';
 import { AuthRequest } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
+
+// Helper para convertir string a ObjectId de forma segura
+const toObjectId = (id: string | undefined): mongoose.Types.ObjectId | undefined => {
+  if (!id) return undefined;
+  try {
+    return new mongoose.Types.ObjectId(id);
+  } catch {
+    return undefined;
+  }
+};
 
 // @desc    Obtener estadísticas globales (todos los stores)
 // @route   GET /api/dashboard/global
@@ -198,7 +209,13 @@ export const getStoreStats = async (req: AuthRequest, res: Response, next: NextF
       }
     }
 
-    const query: any = { store: storeId, status: SaleStatus.COMPLETED };
+    // Convertir storeId a ObjectId
+    const storeObjectId = toObjectId(storeId);
+    if (!storeObjectId) {
+      throw new AppError('ID de tienda inválido', 400);
+    }
+
+    const query: any = { store: storeObjectId, status: SaleStatus.COMPLETED };
 
     if (startDate || endDate) {
       query.createdAt = {};
@@ -228,7 +245,7 @@ export const getStoreStats = async (req: AuthRequest, res: Response, next: NextF
     const salesByDay = await Sale.aggregate([
       {
         $match: {
-          store: storeId,
+          store: storeObjectId,
           status: SaleStatus.COMPLETED,
           createdAt: { $gte: thirtyDaysAgo }
         }
@@ -269,7 +286,7 @@ export const getStoreStats = async (req: AuthRequest, res: Response, next: NextF
 
     // Inventario actual
     const inventoryStats = await Inventory.aggregate([
-      { $match: { store: storeId } },
+      { $match: { store: storeObjectId } },
       {
         $group: {
           _id: null,
@@ -291,7 +308,7 @@ export const getStoreStats = async (req: AuthRequest, res: Response, next: NextF
     const todaySales = await Sale.aggregate([
       {
         $match: {
-          store: storeId,
+          store: storeObjectId,
           status: SaleStatus.COMPLETED,
           createdAt: { $gte: today }
         }
@@ -417,7 +434,10 @@ export const getSalesTrend = async (req: AuthRequest, res: Response, next: NextF
     };
 
     if (targetStore) {
-      matchQuery.store = targetStore;
+      const storeObjectId = toObjectId(targetStore as string);
+      if (storeObjectId) {
+        matchQuery.store = storeObjectId;
+      }
     }
 
     // Agregación por día
@@ -491,7 +511,10 @@ export const getTopProducts = async (req: AuthRequest, res: Response, next: Next
     const matchQuery: any = { status: SaleStatus.COMPLETED };
 
     if (targetStore) {
-      matchQuery.store = targetStore;
+      const storeObjectId = toObjectId(targetStore as string);
+      if (storeObjectId) {
+        matchQuery.store = storeObjectId;
+      }
     }
 
     if (startDate || endDate) {
@@ -587,7 +610,10 @@ export const getPaymentMethodsStats = async (req: AuthRequest, res: Response, ne
 
     // Filtrar por tienda si se especificó
     if (targetStore) {
-      matchQuery.store = targetStore;
+      const storeObjectId = toObjectId(targetStore as string);
+      if (storeObjectId) {
+        matchQuery.store = storeObjectId;
+      }
     }
 
     // Agregación por método de pago

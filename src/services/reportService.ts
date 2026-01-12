@@ -1,4 +1,15 @@
 import Sale from '../models/Sale';
+import mongoose from 'mongoose';
+
+// Helper para convertir string a ObjectId de forma segura
+const toObjectId = (id: string | undefined): mongoose.Types.ObjectId | undefined => {
+  if (!id) return undefined;
+  try {
+    return new mongoose.Types.ObjectId(id);
+  } catch {
+    return undefined;
+  }
+};
 
 interface ReportFilters {
   dateFrom?: string;
@@ -25,7 +36,7 @@ export class ReportService {
     }
 
     if (store) {
-      matchStage.store = store;
+      const storeObjectId = toObjectId(store); if (storeObjectId) { matchStage.store = storeObjectId; }
     }
 
     const pipeline: any[] = [
@@ -92,7 +103,7 @@ export class ReportService {
     }
 
     if (store) {
-      matchStage.store = store;
+      const storeObjectId = toObjectId(store); if (storeObjectId) { matchStage.store = storeObjectId; }
     }
 
     const pipeline: any[] = [
@@ -193,7 +204,7 @@ export class ReportService {
     }
 
     if (store) {
-      matchStage.store = store;
+      const storeObjectId = toObjectId(store); if (storeObjectId) { matchStage.store = storeObjectId; }
     }
 
     const result = await Sale.aggregate([
@@ -289,7 +300,7 @@ export class ReportService {
     }
 
     if (store) {
-      matchStage.store = store;
+      const storeObjectId = toObjectId(store); if (storeObjectId) { matchStage.store = storeObjectId; }
     }
 
     const result = await Sale.aggregate([
@@ -338,7 +349,7 @@ export class ReportService {
     }
 
     if (store) {
-      matchStage.store = store;
+      const storeObjectId = toObjectId(store); if (storeObjectId) { matchStage.store = storeObjectId; }
     }
 
     const result = await Sale.aggregate([
