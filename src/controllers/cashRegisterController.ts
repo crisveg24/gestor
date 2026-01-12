@@ -115,16 +115,15 @@ export const getCurrentCashRegister = async (req: AuthRequest, res: Response, ne
       return;
     }
 
-    // Obtener ventas del día por método de pago
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Obtener ventas desde que se abrió la caja (no desde las 00:00)
+    const openedAt = cashRegister.openedAt;
 
     const salesByMethod = await Sale.aggregate([
       {
         $match: {
           store: new mongoose.Types.ObjectId(targetStore as string),
           status: SaleStatus.COMPLETED,
-          createdAt: { $gte: today }
+          createdAt: { $gte: openedAt }
         }
       },
       {
