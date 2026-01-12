@@ -18,13 +18,13 @@ import { UserRole } from '../models/User';
 const router = express.Router();
 
 // Rate limiter específico para login - más estricto que el general
-// Limita a 5 intentos cada 15 minutos por IP para prevenir ataques de fuerza bruta
+// Limita a 10 intentos cada 15 minutos por IP para prevenir ataques de fuerza bruta
 const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // 5 intentos máximo
+  max: 10, // 10 intentos máximo
   message: {
     success: false,
-    message: 'Demasiados intentos de inicio de sesión. Por favor, intente de nuevo en 15 minutos.',
+    message: 'Demasiados intentos de inicio de sesión desde esta IP. Por favor, intente de nuevo en 15 minutos.',
   },
   standardHeaders: true,
   legacyHeaders: false,

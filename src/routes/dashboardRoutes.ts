@@ -30,7 +30,7 @@ router.get('/top-products', cacheMiddleware({ ttl: 300 }), getTopProducts);
 // Estadísticas por método de pago - caché 2 minutos
 router.get('/payment-methods', cacheMiddleware({ ttl: 120 }), getPaymentMethodsStats);
 
-// Estadísticas por tienda
-router.get('/store/:storeId', checkStoreAccess, getStoreStats);
+// Estadísticas por tienda - caché 2 minutos
+router.get('/store/:storeId', checkStoreAccess, cacheMiddleware({ ttl: 120 }), getStoreStats);
 
 export default router;

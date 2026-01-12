@@ -265,6 +265,29 @@ export const addPayment = async (req: AuthRequest, res: Response, next: NextFunc
 
       // Si es apartado, ahora descontar del inventario (el cliente se lleva el producto)
       if (credit.type === CreditType.APARTADO) {
+        const stockErrors: string[] = [];
+        
+        // Primero verificar que hay stock suficiente para todos los items
+        for (const item of credit.items) {
+          const inventory = await Inventory.findOne({
+            store: credit.store,
+            product: item.product
+          }).session(session).populate('product', 'name');
+
+          if (!inventory) {
+            stockErrors.push(`Producto no encontrado en inventario`);
+          } else if (inventory.quantity < item.quantity) {
+            const productName = (inventory.product as any)?.name || 'Producto';
+            stockErrors.push(`${productName}: Stock insuficiente (disponible: ${inventory.quantity}, necesario: ${item.quantity})`);
+          }
+        }
+
+        // Si hay errores de stock, abortar
+        if (stockErrors.length > 0) {
+          throw new AppError(`No se puede completar el apartado:\n${stockErrors.join('\n')}`, 400);
+        }
+
+        // Ahora sí descontar el inventario
         for (const item of credit.items) {
           const inventory = await Inventory.findOne({
             store: credit.store,

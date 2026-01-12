@@ -46,11 +46,11 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
     const paidItems = items.filter((item: any) => item.unitPrice > 0);
     const freebieItems = items.filter((item: any) => item.unitPrice === 0);
 
-    // Obtener inventario solo para productos pagados
-    const productIds = paidItems.map((item: any) => item.product);
+    // Obtener inventario para TODOS los productos (pagados y ñapas)
+    const allProductIds = items.map((item: any) => item.product);
     const inventoryItems = await Inventory.find({
       store,
-      product: { $in: productIds }
+      product: { $in: allProductIds }
     }).session(session);
 
     // Crear un mapa para acceso rápido
@@ -59,7 +59,7 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
       inventoryMap.set(inv.product.toString(), inv);
     });
 
-    // Validar y actualizar inventario (solo productos pagados)
+    // Validar y actualizar inventario (productos pagados)
     const saleItems = [];
     const bulkOps = [];
     
@@ -98,8 +98,34 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
       });
     }
 
-    // Agregar ñapas sin validar inventario
+    // Agregar ñapas y validar/descontar inventario
     for (const freebie of freebieItems) {
+      const inventoryItem = inventoryMap.get(freebie.product);
+
+      if (!inventoryItem) {
+        await session.abortTransaction();
+        throw new AppError(`Producto (ñapa) no encontrado en el inventario`, 404);
+      }
+
+      if (inventoryItem.quantity < freebie.quantity) {
+        await session.abortTransaction();
+        throw new AppError(
+          `Stock insuficiente para ñapa. Disponible: ${inventoryItem.quantity}`,
+          400
+        );
+      }
+
+      // Descontar ñapa del inventario
+      bulkOps.push({
+        updateOne: {
+          filter: { _id: inventoryItem._id },
+          update: { 
+            $inc: { quantity: -freebie.quantity },
+            $set: { updatedBy: req.user?._id }
+          }
+        }
+      });
+
       saleItems.push({
         product: freebie.product,
         quantity: freebie.quantity,
@@ -117,6 +143,12 @@ export const createSale = async (req: AuthRequest, res: Response, next: NextFunc
     const total = saleItems.reduce((sum, item) => sum + item.subtotal, 0);
     const finalDiscount = discount || 0;
     const finalTax = tax || 0;
+
+    // Validar que el descuento no supere el total + impuestos
+    if (finalDiscount > total + finalTax) {
+      throw new AppError(`El descuento ($${finalDiscount.toLocaleString()}) no puede superar el total de la venta ($${(total + finalTax).toLocaleString()})`, 400);
+    }
+
     const finalTotal = total + finalTax - finalDiscount;
 
     // Crear venta
@@ -348,6 +380,10 @@ export const updateSale = async (req: AuthRequest, res: Response, next: NextFunc
     if (notes !== undefined) sale.notes = notes;
     if (paymentMethod !== undefined) sale.paymentMethod = paymentMethod;
     if (discount !== undefined) {
+      // Validar que el descuento no supere el total + impuestos
+      if (discount > sale.total + sale.tax) {
+        throw new AppError(`El descuento ($${discount.toLocaleString()}) no puede superar el total de la venta ($${(sale.total + sale.tax).toLocaleString()})`, 400);
+      }
       sale.discount = discount;
       // Recalcular total final
       sale.finalTotal = sale.total + sale.tax - sale.discount;
@@ -628,6 +664,12 @@ export const editSaleItems = async (req: AuthRequest, res: Response, next: NextF
 
     // 4. Recalcular totales
     sale.total = sale.items.reduce((sum, item) => sum + item.subtotal, 0);
+
+    // Validar que el descuento no supere el total + impuestos
+    if (sale.discount > sale.total + sale.tax) {
+      throw new AppError(`El descuento ($${sale.discount.toLocaleString()}) no puede superar el total de la venta ($${(sale.total + sale.tax).toLocaleString()})`, 400);
+    }
+
     sale.finalTotal = sale.total + sale.tax - sale.discount;
 
     // 5. Marcar como editada

@@ -50,8 +50,15 @@ export const exportFullBackup = async (req: AuthRequest, res: Response, next: Ne
       Transfer.find().lean(), // Transferencias no tienen un solo store
       CashRegister.find(storeFilter).lean(),
       Return.find(storeFilter).lean(),
-      User.find().select('-password').lean(),
+      // Usuarios: solo incluir campos necesarios, ocultar emails parcialmente
+      User.find().select('_id name role store isActive createdAt').lean(),
     ]);
+
+    // Proteger emails de usuarios - solo mostrar parcialmente para referencia
+    const sanitizedUsers = users.map((user: any) => ({
+      ...user,
+      // No incluir email completo en backup por privacidad
+    }));
 
     const backupData = {
       exportDate: new Date().toISOString(),
@@ -81,7 +88,7 @@ export const exportFullBackup = async (req: AuthRequest, res: Response, next: Ne
         transfers,
         cashRegisters,
         returns,
-        users,
+        users: sanitizedUsers,
       },
     };
 

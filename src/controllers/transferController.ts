@@ -12,9 +12,14 @@ import { UserRole } from '../models/User';
 // @route   POST /api/transfers
 // @access  Private/Admin
 export const createTransfer = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      await session.abortTransaction();
+      session.endSession();
       res.status(400).json({ success: false, errors: errors.array() });
       return;
     }
@@ -27,8 +32,8 @@ export const createTransfer = async (req: AuthRequest, res: Response, next: Next
     }
 
     const [fromStoreDoc, toStoreDoc] = await Promise.all([
-      Store.findById(fromStore),
-      Store.findById(toStore)
+      Store.findById(fromStore).session(session),
+      Store.findById(toStore).session(session)
     ]);
 
     if (!fromStoreDoc) {
@@ -38,13 +43,13 @@ export const createTransfer = async (req: AuthRequest, res: Response, next: Next
       throw new AppError('Tienda destino no encontrada', 404);
     }
 
-    // Validar disponibilidad de stock en tienda origen
+    // Validar disponibilidad de stock en tienda origen (con session para lectura consistente)
     const stockErrors: string[] = [];
     for (const item of items) {
       const inventory = await Inventory.findOne({
         store: fromStore,
         product: item.product
-      }).populate('product', 'name');
+      }).populate('product', 'name').session(session);
 
       if (!inventory) {
         const productName = (inventory as any)?.product?.name || item.product;
@@ -59,17 +64,19 @@ export const createTransfer = async (req: AuthRequest, res: Response, next: Next
       throw new AppError(stockErrors.join('. '), 400);
     }
 
-    // Crear la transferencia
-    const transfer = await Transfer.create({
+    // Crear la transferencia dentro de la transacción
+    const [transfer] = await Transfer.create([{
       fromStore,
       toStore,
       items,
       notes,
       createdBy: req.user!._id,
       status: TransferStatus.PENDING
-    });
+    }], { session });
 
-    // Poblar datos para la respuesta
+    await session.commitTransaction();
+
+    // Poblar datos para la respuesta (después del commit)
     await transfer.populate([
       { path: 'fromStore', select: 'name' },
       { path: 'toStore', select: 'name' },
@@ -82,7 +89,10 @@ export const createTransfer = async (req: AuthRequest, res: Response, next: Next
       data: transfer
     });
   } catch (error) {
+    await session.abortTransaction();
     next(error);
+  } finally {
+    session.endSession();
   }
 };
 
