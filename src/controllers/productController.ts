@@ -14,7 +14,7 @@ import { getPaginationParams, paginatedApiResponse } from '../utils/pagination';
 // @access  Private
 export const getProducts = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { search, category, isActive } = req.query;
+    const { search, category, isActive, sortBy, sortOrder } = req.query;
     const paginationOptions = getPaginationParams(req);
 
     const query: any = {};
@@ -38,8 +38,14 @@ export const getProducts = async (req: AuthRequest, res: Response, next: NextFun
       query.isActive = isActive === 'true';
     }
 
+    // Ordenamiento dinámico
+    const validSortFields = ['name', 'sku', 'category', 'price', 'createdAt'];
+    const sortField = validSortFields.includes(sortBy as string) ? sortBy as string : 'name';
+    const sortDirection = sortOrder === 'desc' ? -1 : 1;
+    const sortOptions: any = { [sortField]: sortDirection };
+
     const products = await Product.find(query)
-      .sort({ name: 1 })
+      .sort(sortOptions)
       .skip(paginationOptions.skip)
       .limit(paginationOptions.limit);
 

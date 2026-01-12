@@ -10,9 +10,18 @@ import logger from '../utils/logger';
 // @access  Private/Admin
 export const getUsers = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { role, store, isActive } = req.query;
+    const { role, store, isActive, search } = req.query;
 
     const query: any = {};
+    
+    // Búsqueda por nombre o email
+    if (search) {
+      const searchRegex = new RegExp(search as string, 'i');
+      query.$or = [
+        { name: searchRegex },
+        { email: searchRegex }
+      ];
+    }
     
     if (role) query.role = role;
     if (store) query.store = store;

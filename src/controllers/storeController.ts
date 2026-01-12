@@ -10,9 +10,20 @@ import logger from '../utils/logger';
 // @access  Private/Admin
 export const getStores = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { isActive } = req.query;
+    const { isActive, search } = req.query;
 
     const query: any = {};
+    
+    // Búsqueda por nombre, dirección o teléfono
+    if (search) {
+      const searchRegex = new RegExp(search as string, 'i');
+      query.$or = [
+        { name: searchRegex },
+        { address: searchRegex },
+        { phone: searchRegex }
+      ];
+    }
+    
     if (isActive !== undefined) {
       query.isActive = isActive === 'true';
     }
